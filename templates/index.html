@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talking Objects Maker — Toolgini</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Talking Objects Maker</h1>
+            <p class="subtitle">Powered by Toolgini x Gemini AI</p>
+        </header>
+
+        <!-- UPLOAD SECTION -->
+        <div id="upload-section">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-icon">📷</div>
+                <p>Drag & drop a machine photo here</p>
+                <p class="small">or click to select</p>
+                <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.webp" hidden>
+            </div>
+            <div id="preview-container" class="hidden">
+                <img id="preview-image" alt="Preview">
+                <button id="clear-btn" class="btn-small">✕ Clear</button>
+            </div>
+
+            <div class="options">
+                <div class="option-group">
+                    <label>Style</label>
+                    <select id="style-select">
+                        <option value="all" selected>All three</option>
+                        <option value="cartoon">Cartoon</option>
+                        <option value="pixar">Pixar 3D</option>
+                        <option value="realistic">Realistic</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Expression</label>
+                    <select id="expression-select">
+                        <option value="happy">Happy</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="serious">Serious</option>
+                        <option value="surprised">Surprised</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Generate images</label>
+                    <select id="gen-select">
+                        <option value="false" selected>Prompts only (~$0.003)</option>
+                        <option value="true">Prompts + Images (~$0.12)</option>
+                    </select>
+                </div>
+                <div class="option-group full-width">
+                    <label>Personality (optional)</label>
+                    <input type="text" id="personality-input" placeholder="e.g. angry Greek comedian">
+                </div>
+            </div>
+
+            <button id="generate-btn" class="btn-primary" disabled>Generate!</button>
+        </div>
+
+        <!-- LOADING SECTION -->
+        <div id="loading-section" class="hidden">
+            <div class="loader"></div>
+            <p id="loading-text">Analyzing machine...</p>
+            <p class="small" id="loading-sub">This takes 30-60 seconds</p>
+        </div>
+
+        <!-- RESULTS SECTION -->
+        <div id="results-section" class="hidden">
+            <div class="result-header">
+                <h2 id="machine-type"></h2>
+                <p id="personality-text"></p>
+                <p id="catchphrase-text" class="catchphrase"></p>
+            </div>
+
+            <div class="face-info">
+                <div><strong>Eyes:</strong> <span id="eyes-info"></span></div>
+                <div><strong>Mouth:</strong> <span id="mouth-info"></span></div>
+            </div>
+
+            <!-- Generated Images -->
+            <div id="images-grid" class="images-grid hidden"></div>
+
+            <!-- Prompts -->
+            <div id="prompts-section">
+                <h3>Prompts</h3>
+                <div id="prompts-list"></div>
+            </div>
+
+            <!-- Animation -->
+            <div id="animation-section" class="hidden">
+                <h3>Animation Prompt</h3>
+                <div class="prompt-card">
+                    <pre id="animation-prompt"></pre>
+                    <button class="btn-copy" onclick="copyText('animation-prompt')">Copy</button>
+                </div>
+            </div>
+
+            <div class="result-actions">
+                <button id="download-all-btn" class="btn-secondary hidden">Download All (ZIP)</button>
+                <button id="try-again-btn" class="btn-primary">Try Another</button>
+            </div>
+        </div>
+
+        <!-- ERROR -->
+        <div id="error-section" class="hidden">
+            <div class="error-card">
+                <h3>Error</h3>
+                <p id="error-text"></p>
+                <button onclick="resetUI()" class="btn-primary">Try Again</button>
+            </div>
+        </div>
+
+        <footer>Made with care by Toolgini — woodmachine.gr</footer>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

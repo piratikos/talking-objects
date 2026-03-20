@@ -1,0 +1,13 @@
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*_talking/
+*/generated/
+*.egg-info/
+dist/
+build/
+.DS_Store
+uploads/
+results/

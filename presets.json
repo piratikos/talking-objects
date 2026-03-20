@@ -1,0 +1,14 @@
+{
+  "edgebander": {"personality": "Small but mighty, confident, energetic", "catchphrase": "Είμαι μικρή αλλά κάνω τα πάντα!"},
+  "edge bander": {"personality": "Small but mighty, confident, energetic", "catchphrase": "Είμαι μικρή αλλά κάνω τα πάντα!"},
+  "planer": {"personality": "Wise old craftsman, decades of experience", "catchphrase": "Εγώ ξέρω από ξύλο, παιδί μου..."},
+  "thicknesser": {"personality": "Wise old craftsman, decades of experience", "catchphrase": "Εγώ ξέρω από ξύλο, παιδί μου..."},
+  "format_saw": {"personality": "Precise, authoritative, no-nonsense", "catchphrase": "Ακρίβεια. Πάντα ακρίβεια."},
+  "panel_saw": {"personality": "Precise, authoritative, no-nonsense", "catchphrase": "Ακρίβεια. Πάντα ακρίβεια."},
+  "spindle_moulder": {"personality": "Elegant, artistic, detail-oriented", "catchphrase": "Η τέχνη είναι στη λεπτομέρεια..."},
+  "dust_collector": {"personality": "Health-obsessed, eager, always hungry", "catchphrase": "Σκόνη; Πού είναι σκόνη; Θα τη φάω!"},
+  "bandsaw": {"personality": "Careful, methodical, curve specialist", "catchphrase": "Ακολούθα τη γραμμή..."},
+  "router": {"personality": "Versatile showoff, can do everything", "catchphrase": "Πες μου τι θέλεις!"},
+  "drill_press": {"personality": "Focused, single-minded, accurate", "catchphrase": "Μια τρύπα, τέλεια κάθε φορά."},
+  "sander": {"personality": "Patient, smooth, calming", "catchphrase": "Ηρέμησε... θα τα λειάνω όλα."}
+}
