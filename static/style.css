@@ -447,3 +447,32 @@ footer {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Project cards link */
+.project-card-link { text-decoration: none; color: inherit; display: block; }
+.project-card-link .project-card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+.project-card-link:hover .project-card {
+    border-color: var(--accent-glow); transform: translateX(6px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.gen-badge {
+    background: var(--accent); color: #fff; border-radius: 50%;
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+/* Project detail */
+.project-name-section { margin: 16px 0; }
+.editable-name {
+    color: var(--accent); font-size: 24px; font-weight: 700; cursor: pointer;
+    border-bottom: 2px dashed transparent; transition: border-color 0.2s;
+    letter-spacing: -0.3px;
+}
+.editable-name:hover { border-bottom-color: var(--accent-glow); }
+.rename-form { display: flex; gap: 8px; align-items: center; }
+.rename-form input {
+    flex: 1; padding: 10px; font-size: 18px; font-weight: 600;
+    background: var(--bg-card); border: 2px solid var(--accent); border-radius: 10px; color: #fff;
+}
+.project-actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }

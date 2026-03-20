@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project.machine_type or 'Project' }} — Talking Objects</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="particles"></div>
+<div class="container stagger">
+    <header>
+        <div class="header-row">
+            <div>
+                <a href="/projects" class="btn-small-secondary" style="margin-bottom:8px;display:inline-block;">&larr; All Projects</a>
+            </div>
+            <div class="user-badge">
+                <span class="avatar">{{ user_name[0] }}</span>
+                <span>{{ user_name }}</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Project Name (editable) -->
+    <div class="project-name-section">
+        <h1 id="project-name" class="editable-name" onclick="startEditName()" title="Click to rename">
+            {{ project.machine_type or project.original_filename or 'Untitled Project' }}
+        </h1>
+        <form id="rename-form" class="rename-form hidden" method="POST" action="/projects/{{ project.id }}/rename">
+            <input type="text" name="name" id="rename-input" value="{{ project.machine_type or '' }}" placeholder="Project name...">
+            <button type="submit" class="btn-copy">Save</button>
+            <button type="button" class="btn-small-secondary" onclick="cancelEditName()">Cancel</button>
+        </form>
+        <p class="small" style="margin-top:4px;">{{ project.original_filename }} &middot; {{ project.created_at[:10] if project.created_at else '' }}</p>
+    </div>
+
+    <!-- Machine Info -->
+    {% if project.personality or project.catchphrase %}
+    <div class="result-header">
+        {% if project.personality %}<p>{{ project.personality }}</p>{% endif %}
+        {% if project.catchphrase %}<p class="catchphrase">"{{ project.catchphrase }}"</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="project-actions-bar">
+        <a href="/projects/{{ project.id }}/download" class="btn-small-secondary">Download All (ZIP)</a>
+        <a href="/app" class="btn-small-secondary">+ New Project</a>
+        <form method="POST" action="/projects/{{ project.id }}/delete" style="display:inline;"
+              onsubmit="return confirm('Delete this project and all images?')">
+            <button type="submit" class="btn-small-secondary" style="color:var(--error);border-color:var(--error);">Delete Project</button>
+        </form>
+    </div>
+
+    <!-- Generated Images Grid -->
+    {% if generations %}
+    <h3 style="color:var(--accent);margin:20px 0 12px;">Generated Images ({{ generations|length }})</h3>
+    <div class="images-grid">
+        {% for g in generations %}
+        <div class="image-card">
+            {% if g.exists %}
+            <img src="{{ g.serve_path }}" alt="{{ g.style }} {{ g.expression }}"
+                 onclick="openLightbox('{{ g.serve_path }}')">
+            {% else %}
+            <div style="padding:40px;color:var(--text-muted);font-size:12px;">Image not found</div>
+            {% endif %}
+            <div class="card-footer">
+                <div>
+                    <span class="label">{{ g.style }} / {{ g.expression }}</span>
+                    <br><span class="small">{{ g.body_style or '' }} {{ g.background or '' }} {{ g.camera_angle or '' }}</span>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    {% if g.exists %}
+                    <a href="{{ g.serve_path }}" download="{{ g.style }}_{{ g.expression }}.png" class="btn-copy">DL</a>
+                    {% endif %}
+                    <form method="POST" action="/generations/{{ g.id }}/delete" style="display:inline;">
+                        <input type="hidden" name="project_id" value="{{ project.id }}">
+                        <button type="submit" class="btn-small-secondary" style="color:var(--error);padding:5px 8px;" title="Delete">✕</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px;">
+        <p>No images generated yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox hidden" onclick="closeLightbox()">
+        <img id="lightbox-img" alt="Full size">
+    </div>
+
+    <footer>Made with care by Toolgini — woodmachine.gr</footer>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+function startEditName() {
+    document.getElementById('project-name').classList.add('hidden');
+    document.getElementById('rename-form').classList.remove('hidden');
+    document.getElementById('rename-input').focus();
+    document.getElementById('rename-input').select();
+}
+function cancelEditName() {
+    document.getElementById('project-name').classList.remove('hidden');
+    document.getElementById('rename-form').classList.add('hidden');
+}
+// Submit rename via AJAX
+document.getElementById('rename-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('rename-input').value.trim();
+    if (!name) return;
+    await fetch('/projects/{{ project.id }}/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'},
+        body: 'name=' + encodeURIComponent(name)
+    });
+    document.getElementById('project-name').textContent = name;
+    cancelEditName();
+});
+</script>
+</body>
+</html>

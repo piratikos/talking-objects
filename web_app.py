@@ -32,7 +32,7 @@ from talking_objects import (
 from models import (
     create_user, authenticate_user, get_user_by_id,
     create_project, get_user_projects, get_project, delete_project,
-    add_generation
+    rename_project, delete_generation, add_generation
 )
 
 app = Flask(__name__)
@@ -308,15 +308,86 @@ def projects_page():
     return render_template('projects.html', projects=projects, user_name=current_user.name)
 
 
+@app.route('/projects/<int:pid>')
+@login_required
+def project_detail(pid):
+    project, generations = get_project(pid, current_user.id)
+    if not project:
+        return redirect(url_for('projects_page'))
+
+    # Check which generation images exist on disk
+    for g in generations:
+        g['exists'] = Path(g.get('image_path', '')).exists() if g.get('image_path') else False
+        if g['exists']:
+            # Make path relative for serving
+            g['serve_path'] = f"/project-image/{pid}/{g['id']}"
+    return render_template('project_detail.html', project=project, generations=generations, user_name=current_user.name)
+
+
+@app.route('/project-image/<int:pid>/<int:gid>')
+@login_required
+def serve_project_image(pid, gid):
+    """Serve a generated image from a project."""
+    project, generations = get_project(pid, current_user.id)
+    if not project:
+        return "Not found", 404
+    for g in generations:
+        if g['id'] == gid and g.get('image_path'):
+            p = Path(g['image_path'])
+            if p.exists():
+                return send_file(str(p))
+    return "Not found", 404
+
+
+@app.route('/projects/<int:pid>/rename', methods=['POST'])
+@login_required
+def rename_project_route(pid):
+    name = request.form.get('name', '').strip()
+    if name:
+        rename_project(pid, current_user.id, name)
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({"ok": True})
+    return redirect(url_for('project_detail', pid=pid))
+
+
 @app.route('/projects/<int:pid>/delete', methods=['POST'])
 @login_required
 def delete_project_route(pid):
     delete_project(pid, current_user.id)
-    # Clean files
     proj_dir = app.config['RESULTS_FOLDER'] / str(current_user.id) / str(pid)
     if proj_dir.exists():
         shutil.rmtree(proj_dir, ignore_errors=True)
     return redirect(url_for('projects_page'))
+
+
+@app.route('/generations/<int:gid>/delete', methods=['POST'])
+@login_required
+def delete_generation_route(gid):
+    delete_generation(gid, current_user.id)
+    pid = request.form.get('project_id')
+    if pid:
+        return redirect(url_for('project_detail', pid=int(pid)))
+    return redirect(url_for('projects_page'))
+
+
+@app.route('/projects/<int:pid>/download')
+@login_required
+def download_project(pid):
+    """Download all images from a project as ZIP."""
+    project, generations = get_project(pid, current_user.id)
+    if not project:
+        return "Not found", 404
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for g in generations:
+            p = Path(g.get('image_path', ''))
+            if p.exists():
+                zf.write(p, f"{g['style']}_{g['expression']}.png")
+    buf.seek(0)
+    name = (project.get('machine_type') or 'project').replace(' ', '_')
+    return send_file(buf, mimetype='application/zip', as_attachment=True,
+                     download_name=f"{name}_{pid}.zip")
 
 
 # ── Upload / Generate / Regenerate ────────────────────────────

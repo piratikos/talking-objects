@@ -140,6 +140,32 @@ def delete_project(project_id, user_id):
     conn.close()
 
 
+def rename_project(project_id, user_id, new_name):
+    conn = get_db()
+    conn.execute("UPDATE projects SET machine_type = ? WHERE id = ? AND user_id = ?",
+                 (new_name.strip(), project_id, user_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_generation(gen_id, user_id):
+    """Delete a generation if it belongs to user's project."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT g.image_path FROM generations g JOIN projects p ON g.project_id = p.id "
+        "WHERE g.id = ? AND p.user_id = ?", (gen_id, user_id)
+    ).fetchone()
+    if row:
+        conn.execute("DELETE FROM generations WHERE id = ?", (gen_id,))
+        conn.commit()
+        # Delete file
+        if row["image_path"]:
+            p = Path(row["image_path"])
+            if p.exists():
+                p.unlink(missing_ok=True)
+    conn.close()
+
+
 # Generation operations
 
 def add_generation(project_id, style, expression, body_style, background, camera_angle, image_path, prompt_text=""):
