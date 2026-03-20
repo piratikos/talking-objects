@@ -25,6 +25,8 @@ PRESETS_PATH = SCRIPT_DIR / "presets.json"
 MAX_IMAGE_EDGE = 1568
 
 STYLES = ["cartoon", "pixar", "realistic"]
+ALL_STYLES = ["cartoon", "pixar", "realistic", "plushcore", "action_figure",
+              "anime", "low_poly", "claymation", "chibi", "blueprint", "cyberpunk"]
 EXPRESSIONS = ["neutral", "happy", "serious", "surprised"]
 
 SYSTEM_PROMPT = """You are an expert industrial product photographer and Pixar character designer specialized in creating "talking object" characters from real product photos.
@@ -247,7 +249,7 @@ def _short_prompt(style, expression, face_placement=None):
             "Style: Pixar animation quality, subsurface scattering on face features, ambient occlusion, soft rim lighting, professional 3D character design."
         )
 
-    else:  # realistic
+    elif style == "realistic":
         return (
             f"Edit this photo: subtly add face-like features to the machine's front surface. "
             f"Add two glowing eye-like indicators with {eyes_color} glow at the eye positions. "
@@ -255,6 +257,83 @@ def _short_prompt(style, expression, face_placement=None):
             f"{expr_desc}. "
             f"{placement_rules} "
             "Style: photorealistic, features look like real machine parts — indicator lights for eyes, panel seam for mouth."
+        )
+
+    elif style == "plushcore":
+        return (
+            f"Edit this photo: transform this machine into a soft plush toy version. "
+            f"Squishy fabric texture, rounded edges, felt material. Button eyes with {eyes_color} felt circles, stitched smile mouth. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: stuffed toy aesthetic, warm soft lighting, shallow depth of field, collectible plush product photo."
+        )
+
+    elif style == "action_figure":
+        return (
+            f"Show this machine as a collectible action figure toy inside clear plastic blister packaging. "
+            f"Cardboard backing says TOOLGINI at top. Machine has cartoon face with {eyes_color} eyes, articulated joints, small accessories. "
+            f"{expr_desc}. "
+            "Style: professional toy product photography on white background, blister pack packaging."
+        )
+
+    elif style == "anime":
+        return (
+            f"Edit this photo: render in anime/manga style. "
+            f"Machine has large sparkly anime eyes with {eyes_color} irises and dramatic highlights, small cute mouth. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: Japanese animation, cel-shaded, speed lines in background, vibrant colors."
+        )
+
+    elif style == "low_poly":
+        return (
+            f"Edit this photo: render as a low-poly 3D model character. "
+            f"Geometric faceted eyes with {eyes_color}, angular mouth shape. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: low-poly 3D, flat shading, limited color palette, indie game character aesthetic."
+        )
+
+    elif style == "claymation":
+        return (
+            f"Edit this photo: render as a claymation stop-motion character. "
+            f"Clay eyes with {eyes_color} painted pupils, slightly rough clay mouth. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: Wallace & Gromit aesthetic, visible fingerprints in clay, slightly imperfect, warm handmade feel."
+        )
+
+    elif style == "chibi":
+        return (
+            f"Edit this photo: render as a chibi character with oversized head (60% of body). "
+            f"Huge adorable eyes with {eyes_color} irises, tiny mouth, very cute compact proportions. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: kawaii Japanese chibi, super cute, simplified features, pastel accents."
+        )
+
+    elif style == "blueprint":
+        return (
+            f"Render as a technical blueprint drawing showing this machine as a character. "
+            f"White line art eyes and mouth on blue background, engineering annotations. "
+            f"{expr_desc}. "
+            "Style: blue background, white lines, grid paper texture, technical illustration, engineering drawing."
+        )
+
+    elif style == "cyberpunk":
+        return (
+            f"Edit this photo: render in cyberpunk neon style. "
+            f"Machine has glowing neon {eyes_color} eyes, neon mouth outline, holographic UI elements. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: dark background, neon orange and blue glow, rain reflections, futuristic workshop, cyberpunk aesthetic."
+        )
+
+    else:
+        return (
+            f"Edit this photo: add a friendly face to the machine. "
+            f"Add eyes with {eyes_color} color and a mouth. {expr_desc}. "
+            f"{placement_rules}"
         )
 
 
@@ -309,6 +388,140 @@ def generate_image(client, original_image, prompt, style, expression, face_place
             return None, None
 
     return None, None
+
+
+def generate_text_only(client, description, machine_type, style, expression, body_style="face_only", background="original", camera_angle="original"):
+    """Generate image from text description only (no reference photo)."""
+    from google.genai import types
+
+    expr_desc = {
+        "neutral": "calm confident expression",
+        "happy": "big happy smile, bright cheerful eyes",
+        "serious": "determined focused look",
+        "surprised": "wide surprised eyes, open mouth",
+    }.get(expression, "neutral expression")
+
+    style_desc = {
+        "cartoon": "cartoon illustration style with bold outlines, bright colors",
+        "pixar": "Pixar-quality 3D render, cinematic lighting, subsurface scattering",
+        "realistic": "photorealistic render, studio product photography",
+        "plushcore": "soft plush toy version, squishy fabric, button eyes, stitched smile",
+        "action_figure": "collectible action figure in clear blister packaging, TOOLGINI on cardboard backing",
+        "anime": "anime/manga style, large sparkly eyes, cel-shaded, speed lines",
+        "low_poly": "low-poly 3D model, flat shading, geometric, indie game style",
+        "claymation": "claymation stop-motion, visible fingerprints in clay, Wallace & Gromit style",
+        "chibi": "chibi character, oversized head 60% of body, huge adorable eyes, kawaii",
+        "blueprint": "technical blueprint drawing, blue background, white lines, engineering annotations",
+        "cyberpunk": "cyberpunk neon style, glowing neon lights, dark background, holographic UI",
+    }.get(style, "3D rendered")
+
+    body_desc = {
+        "face_only": "",
+        "face_arms": "Small mechanical robot arms on the sides with 3-fingered hands. ",
+        "face_arms_legs": "Mechanical robot arms on sides and short sturdy legs at bottom. Wall-E style. ",
+        "face_wheels": "Cartoon wheels at the bottom so it can drive around. ",
+    }.get(body_style, "")
+
+    prompt = (
+        f"{style_desc} 3D render of a {machine_type} woodworking machine character. "
+        f"The machine has {description}. "
+        f"Anthropomorphic face: expressive eyes with eyebrows, a mouth with {expr_desc}. "
+        f"{body_desc}"
+        f"Toolgini branding. Ultra-detailed, professional render."
+    )
+
+    print(f"[DEBUG] Text-only prompt ({len(prompt)} chars): {prompt[:300]}...")
+
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-image",
+                contents=[prompt],
+                config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"])
+            )
+            if (response.candidates and response.candidates[0].content
+                    and response.candidates[0].content.parts):
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data is not None:
+                        return part.inline_data.data, part.inline_data.mime_type
+            if attempt < 2:
+                time.sleep(3)
+                continue
+            return None, None
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(3)
+                continue
+            return None, None
+
+    return None, None
+
+
+def generate_group_shot(client, machines, background="toolgini_workshop", camera_angle="front_facing"):
+    """Generate a group photo of multiple machine characters."""
+    from google.genai import types
+
+    machine_descs = []
+    for i, m in enumerate(machines, 1):
+        machine_descs.append(f"Machine {i}: {m['name']} ({m['type']}) — {m['personality']}. {m.get('description', '')}")
+
+    machines_text = "\n".join(machine_descs)
+
+    bg_desc = {
+        "toolgini_workshop": "professional dark workshop with pegboard wall, tools, TOOLGINI sign on brick wall, warm lighting, sawdust",
+        "modern_showroom": "clean modern showroom with spotlights, polished floor",
+        "trade_show": "trade show exhibition booth with TOOLGINI banners, bright hall",
+        "studio": "dark studio background with dramatic rim lighting",
+    }.get(background, "warm woodworking workshop with TOOLGINI sign")
+
+    prompt = (
+        f"Pixar-style 3D render of {len(machines)} woodworking machine characters standing together "
+        f"in a {bg_desc} like a team photo.\n"
+        f"{machines_text}\n"
+        f"Each machine has expressive cartoon eyes with eyebrows, a defined mouth, and unique personality. "
+        f"Sawdust on wooden floor, warm cinematic lighting, group portrait composition. "
+        f"Ultra-detailed Pixar quality 3D render."
+    )
+
+    print(f"[DEBUG] Group prompt ({len(prompt)} chars): {prompt[:400]}...")
+
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-image",
+                contents=[prompt],
+                config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"])
+            )
+            if (response.candidates and response.candidates[0].content
+                    and response.candidates[0].content.parts):
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data is not None:
+                        return part.inline_data.data, part.inline_data.mime_type
+            if attempt < 2:
+                time.sleep(3)
+                continue
+            return None, None
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(3)
+                continue
+            return None, None
+
+    return None, None
+
+
+TOOLGINI_TEAM = [
+    {"name": "Best Seller", "type": "compact edgebander", "personality": "confident, energetic, small but mighty",
+     "description": "small white-orange automatic edge banding machine with digital displays"},
+    {"name": "Ο Μπαρμπέρης", "type": "planer/thicknesser", "personality": "wise old craftsman with mustache",
+     "description": "large green industrial planer machine"},
+    {"name": "Robocop", "type": "format saw", "personality": "precise, authoritative, no-nonsense",
+     "description": "silver-blue panel saw with precision fence"},
+    {"name": "Η Μπαλαρίνα", "type": "spindle moulder", "personality": "elegant, artistic, graceful",
+     "description": "cream-colored spindle moulder with elegant curves"},
+    {"name": "Ο Διαιτολόγος", "type": "dust collector", "personality": "health-obsessed, eager, always hungry for dust",
+     "description": "white-green industrial dust collector with large hose"},
+]
 
 
 def parse_response(text):

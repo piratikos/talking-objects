@@ -26,8 +26,9 @@ load_dotenv()
 
 from talking_objects import (
     get_client, call_gemini_analysis, generate_image, _short_prompt,
+    generate_text_only, generate_group_shot, TOOLGINI_TEAM,
     parse_response, load_presets, suggest_preset,
-    STYLES, EXPRESSIONS
+    STYLES, ALL_STYLES, EXPRESSIONS
 )
 from models import (
     create_user, authenticate_user, get_user_by_id,
@@ -561,6 +562,74 @@ def api_generate():
                 background, camera_angle, custom_bg)
         else:
             result["generated_images"] = {}
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/generate-text', methods=['POST'])
+@rate_limited
+def generate_text():
+    """Generate from text description only (no photo)."""
+    description = request.form.get('description', '')
+    machine_type = request.form.get('machine_type', 'woodworking machine')
+    style = request.form.get('style', 'pixar')
+    expression = request.form.get('expression', 'happy')
+    body_style = request.form.get('body_style', 'face_only')
+    background = request.form.get('background', 'original')
+    camera_angle = request.form.get('camera_angle', 'original')
+
+    if not description:
+        return jsonify({"error": "Please describe your machine"}), 400
+
+    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / {body_style}")
+
+    try:
+        client = get_client()
+        img_data, mime = generate_text_only(
+            client, description, machine_type, style, expression,
+            body_style, background, camera_angle
+        )
+
+        result = {"status": "complete", "generated_images": {}, "machine_type": machine_type}
+        if img_data:
+            b64 = base64.b64encode(img_data).decode("utf-8")
+            result["generated_images"][f"{style}_{expression}"] = {
+                "data": b64, "mime": mime or "image/png"
+            }
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/generate-group', methods=['POST'])
+@rate_limited
+def generate_group():
+    """Generate group shot of multiple machines."""
+    data = request.get_json() or {}
+    machines = data.get('machines', [])
+    use_preset = data.get('use_preset', False)
+    background = data.get('background', 'toolgini_workshop')
+    camera_angle = data.get('camera_angle', 'front_facing')
+
+    if use_preset:
+        machines = TOOLGINI_TEAM
+
+    if not machines or len(machines) < 2:
+        return jsonify({"error": "Need at least 2 machines"}), 400
+
+    print(f"[DEBUG] Group shot: {len(machines)} machines, bg={background}")
+
+    try:
+        client = get_client()
+        img_data, mime = generate_group_shot(client, machines, background, camera_angle)
+
+        result = {"status": "complete", "generated_images": {}}
+        if img_data:
+            b64 = base64.b64encode(img_data).decode("utf-8")
+            result["generated_images"]["group_shot"] = {
+                "data": b64, "mime": mime or "image/png"
+            }
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

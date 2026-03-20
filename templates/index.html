@@ -31,8 +31,15 @@
             {% endif %}
         </header>
 
-        <!-- UPLOAD SECTION -->
-        <div id="upload-section">
+        <!-- MODE TABS -->
+        <div class="mode-tabs">
+            <button class="mode-tab active" onclick="switchTab('photo')">📷 From Photo</button>
+            <button class="mode-tab" onclick="switchTab('text')">✏️ From Description</button>
+            <button class="mode-tab" onclick="switchTab('group')">👥 Group Shot</button>
+        </div>
+
+        <!-- TAB 1: PHOTO UPLOAD -->
+        <div id="tab-photo" class="tab-content">
             <div id="drop-zone" class="drop-zone">
                 <div class="drop-icon">📷</div>
                 <p>Drag & drop a machine photo here</p>
@@ -45,6 +52,56 @@
             </div>
         </div>
 
+        <!-- TAB 2: TEXT DESCRIPTION -->
+        <div id="tab-text" class="tab-content hidden">
+            <div class="text-input-section">
+                <div class="option-group">
+                    <label>Machine Type</label>
+                    <select id="machine-type-select">
+                        <option value="edgebander">Edgebander</option>
+                        <option value="planer">Planer / Thicknesser</option>
+                        <option value="format saw">Format Saw</option>
+                        <option value="panel saw">Panel Saw</option>
+                        <option value="spindle moulder">Spindle Moulder</option>
+                        <option value="dust collector">Dust Collector</option>
+                        <option value="bandsaw">Bandsaw</option>
+                        <option value="CNC router">CNC Router</option>
+                        <option value="drill press">Drill Press</option>
+                        <option value="sander">Sander</option>
+                        <option value="table saw">Table Saw</option>
+                        <option value="woodworking machine">Custom...</option>
+                    </select>
+                </div>
+                <div class="option-group full-width">
+                    <label>Describe Your Machine</label>
+                    <textarea id="machine-description" rows="3" placeholder="e.g. a small white edgebanding machine with orange rollers and a digital display panel"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: GROUP SHOT -->
+        <div id="tab-group" class="tab-content hidden">
+            <div class="group-section">
+                <button class="btn-secondary" onclick="loadToolginiTeam()" style="margin-bottom:12px;">Load Toolgini Team (5 machines)</button>
+                <div id="group-machines">
+                    <div class="group-machine-card">
+                        <input type="text" placeholder="Machine name" class="gm-name">
+                        <input type="text" placeholder="Type (e.g. edgebander)" class="gm-type">
+                        <input type="text" placeholder="Personality" class="gm-personality">
+                        <input type="text" placeholder="Description" class="gm-desc">
+                    </div>
+                    <div class="group-machine-card">
+                        <input type="text" placeholder="Machine name" class="gm-name">
+                        <input type="text" placeholder="Type (e.g. planer)" class="gm-type">
+                        <input type="text" placeholder="Personality" class="gm-personality">
+                        <input type="text" placeholder="Description" class="gm-desc">
+                    </div>
+                </div>
+                <button class="btn-small-secondary" onclick="addGroupMachine()">+ Add Machine</button>
+                <button class="btn-primary" onclick="generateGroup()" style="margin-top:12px;">Generate Group Shot</button>
+            </div>
+        </div>
+
         <!-- SETTINGS PANEL (visible after upload) -->
         <div id="settings-panel" class="hidden">
             <div class="options">
@@ -54,7 +111,15 @@
                         <option value="pixar" selected>Pixar 3D</option>
                         <option value="cartoon">Cartoon</option>
                         <option value="realistic">Realistic</option>
-                        <option value="all">All three</option>
+                        <option value="plushcore">Plushcore</option>
+                        <option value="action_figure">Action Figure</option>
+                        <option value="anime">Anime/Manga</option>
+                        <option value="chibi">Chibi</option>
+                        <option value="claymation">Claymation</option>
+                        <option value="low_poly">Low Poly</option>
+                        <option value="blueprint">Blueprint</option>
+                        <option value="cyberpunk">Neon/Cyberpunk</option>
+                        <option value="all">All three (classic)</option>
                     </select>
                 </div>
                 <div class="option-group">

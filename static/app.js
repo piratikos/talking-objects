@@ -301,5 +301,144 @@ function resetAll() {
     });
 });
 
+// ── Tabs ───────────────────────────────────────
+let currentMode = 'photo';
+
+function switchTab(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    event.target.classList.add('active');
+    const tab = $('tab-' + mode);
+    if (tab) tab.classList.remove('hidden');
+
+    // Show settings for all modes
+    if (settingsPanel) {
+        if (mode === 'group') {
+            settingsPanel.classList.add('hidden');
+        } else if (mode === 'text') {
+            settingsPanel.classList.remove('hidden');
+            if (generateBtn) generateBtn.disabled = false;
+        }
+    }
+
+    // Update generate button text
+    if (generateBtn) {
+        if (mode === 'text') generateBtn.textContent = 'Generate from Description';
+        else if (mode === 'photo') generateBtn.textContent = 'Generate!';
+    }
+}
+
+// Override generate for text mode
+if (generateBtn) {
+    const originalClick = generateBtn.onclick;
+    generateBtn.addEventListener('click', async (e) => {
+        if (currentMode === 'text') {
+            e.stopImmediatePropagation();
+            const desc = $('machine-description')?.value?.trim();
+            if (!desc) { alert('Please describe your machine'); return; }
+
+            const fd = new FormData();
+            fd.append('description', desc);
+            fd.append('machine_type', $('machine-type-select')?.value || 'woodworking machine');
+            fd.append('style', $('style-select')?.value || 'pixar');
+            fd.append('expression', $('expression-select')?.value || 'happy');
+            fd.append('body_style', $('body-select')?.value || 'face_only');
+            fd.append('background', $('bg-select')?.value || 'original');
+            fd.append('camera_angle', $('angle-select')?.value || 'original');
+
+            showLoading();
+            try {
+                const res = await fetch('/generate-text', { method: 'POST', body: fd });
+                const data = await res.json();
+                stopLoading();
+                if (data.error) { showError(data.error); return; }
+                addToGallery(data.generated_images || {});
+                showResults();
+            } catch (err) {
+                stopLoading();
+                showError(err.message);
+            }
+        }
+    }, true);
+}
+
+// Group shot
+function addGroupMachine() {
+    const container = $('group-machines');
+    if (!container) return;
+    const card = document.createElement('div');
+    card.className = 'group-machine-card';
+    card.innerHTML = `
+        <input type="text" placeholder="Machine name" class="gm-name">
+        <input type="text" placeholder="Type" class="gm-type">
+        <input type="text" placeholder="Personality" class="gm-personality">
+        <input type="text" placeholder="Description" class="gm-desc">
+    `;
+    container.appendChild(card);
+}
+
+function loadToolginiTeam() {
+    const team = [
+        {name:'Best Seller', type:'compact edgebander', personality:'confident, energetic', desc:'small white-orange automatic edge banding machine'},
+        {name:'Ο Μπαρμπέρης', type:'planer', personality:'wise old craftsman', desc:'large green industrial planer'},
+        {name:'Robocop', type:'format saw', personality:'precise, authoritative', desc:'silver-blue panel saw'},
+        {name:'Η Μπαλαρίνα', type:'spindle moulder', personality:'elegant, artistic', desc:'cream spindle moulder'},
+        {name:'Ο Διαιτολόγος', type:'dust collector', personality:'health-obsessed, eager', desc:'white-green dust collector'},
+    ];
+    const container = $('group-machines');
+    if (!container) return;
+    container.innerHTML = '';
+    team.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'group-machine-card';
+        card.innerHTML = `
+            <input type="text" value="${m.name}" class="gm-name">
+            <input type="text" value="${m.type}" class="gm-type">
+            <input type="text" value="${m.personality}" class="gm-personality">
+            <input type="text" value="${m.desc}" class="gm-desc">
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function generateGroup() {
+    const cards = document.querySelectorAll('.group-machine-card');
+    const machines = [];
+    cards.forEach(card => {
+        const name = card.querySelector('.gm-name')?.value?.trim();
+        const type = card.querySelector('.gm-type')?.value?.trim();
+        if (name && type) {
+            machines.push({
+                name, type,
+                personality: card.querySelector('.gm-personality')?.value?.trim() || 'friendly',
+                description: card.querySelector('.gm-desc')?.value?.trim() || '',
+            });
+        }
+    });
+    if (machines.length < 2) { alert('Need at least 2 machines'); return; }
+
+    showLoading();
+    try {
+        const res = await fetch('/generate-group', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                machines,
+                background: $('bg-select')?.value || 'toolgini_workshop',
+                camera_angle: $('angle-select')?.value || 'front_facing',
+            })
+        });
+        const data = await res.json();
+        stopLoading();
+        if (data.error) { showError(data.error); return; }
+        addToGallery(data.generated_images || {});
+        if (gallerySection) gallerySection.classList.remove('hidden');
+    } catch (err) {
+        stopLoading();
+        showError(err.message);
+    }
+}
+
 // ── Init ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', initParticles);
