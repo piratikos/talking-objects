@@ -29,11 +29,126 @@ ALL_STYLES = ["cartoon", "pixar", "realistic", "plushcore", "action_figure",
               "anime", "low_poly", "claymation", "chibi", "blueprint", "cyberpunk"]
 EXPRESSIONS = ["neutral", "happy", "serious", "surprised"]
 
+# ── Category System ───────────────────────────────────────────
+
+CATEGORY_RULES = {
+    "MACHINE/TOOL": {
+        "arms": "mechanical metallic robot arms with visible joints and bolts, 3-fingered gripper hands, matching machine metal color",
+        "legs": "sturdy industrial metal legs with rubber-tipped feet, or rolling caster wheels",
+        "face_size": "medium (30% of front surface)",
+        "eye_style": "industrial indicator-like eyes with metallic eyelids",
+    },
+    "APPLIANCE": {
+        "arms": "thin chrome or white plastic arms matching appliance color, flexible tube-like",
+        "legs": "short stubby plastic legs or small round feet at the base",
+        "face_size": "medium (35% of front door/panel)",
+        "eye_style": "LED display-like eyes matching appliance controls",
+    },
+    "FOOD/FRUIT": {
+        "arms": "tiny thin stick-like arms from the sides with small white-gloved cartoon hands, like M&Ms characters",
+        "legs": "tiny thin stick legs with small round cartoon shoes at the bottom",
+        "face_size": "large (50% of front surface), very expressive",
+        "eye_style": "huge round cartoon eyes taking up most of the face, very kawaii cute",
+    },
+    "VEHICLE": {
+        "arms": "no arms — Pixar Cars rules, expression through body language only",
+        "legs": "wheels ARE the legs, the vehicle drives itself",
+        "face_size": "large — windshield area for eyes, grille for mouth",
+        "eye_style": "windshield eyes with eyelid-like sun visors, headlight pupils",
+    },
+    "BODY_PART": {
+        "arms": "small organic tendril arms matching organ tissue color and texture",
+        "legs": "tiny organic legs or character floats with no legs",
+        "face_size": "medium (30% of surface), organic-looking",
+        "eye_style": "organic rounded eyes matching tissue color, biological feel",
+    },
+    "CLOTHING": {
+        "arms": "fabric or material-matching arms coming from the sides",
+        "legs": "if shoe, the shoe IS the character; others get small matching legs",
+        "face_size": "medium on the flattest surface",
+        "eye_style": "button eyes or embroidered eyes matching the material",
+    },
+    "FURNITURE": {
+        "arms": "wooden or metal arms matching furniture material",
+        "legs": "furniture's own legs become character legs",
+        "face_size": "medium on the back or front flat surface",
+        "eye_style": "knob or handle-based eyes, or carved-looking eyes",
+    },
+    "NATURE": {
+        "arms": "branch-like or vine-like organic arms",
+        "legs": "root-like legs or growing from ground",
+        "face_size": "medium on the main body or trunk",
+        "eye_style": "natural-looking eyes, knotholes or leaf-shaped",
+    },
+    "ELECTRONICS": {
+        "arms": "cable or charger-like arms, or thin sleek robotic arms",
+        "legs": "small stand-like legs or kickstand legs",
+        "face_size": "on the screen — eyes as app icons, mouth as notification bar",
+        "eye_style": "digital screen eyes with pixel or app-icon aesthetic",
+    },
+}
+
+CLOTHING_OPTIONS = {
+    "none": "",
+    "workshop_apron": "Wearing a worn leather workshop apron with tool pockets, slightly dusty.",
+    "business_suit": "Wearing a tiny fitted business suit with tie, looking professional.",
+    "lab_coat": "Wearing a white lab coat with a name tag, looking scientific.",
+    "chef_hat": "Wearing a tall white chef hat and kitchen apron.",
+    "superhero_cape": "Wearing a flowing orange superhero cape with 'T' logo on it.",
+    "hard_hat": "Wearing a yellow construction hard hat and orange safety vest.",
+    "greek_fisherman": "Wearing a traditional Greek fisherman cap (kasketaki) and striped sailor shirt.",
+    "hip_hop": "Wearing a snapback cap, gold chain necklace, and sunglasses, cool urban style.",
+    "christmas": "Wearing a Santa hat and red scarf with white trim, festive holiday look.",
+    "graduation": "Wearing a black graduation cap and gown, looking proud.",
+    "pirate": "Wearing a pirate hat, eye patch on one eye, and a tiny sword.",
+    "sports_jersey": "Wearing a basketball jersey with number 1.",
+    "medieval_knight": "Wearing medieval armor pieces, small shield, helmet visor up.",
+}
+
+UNIVERSAL_RULES = (
+    "UNIVERSAL CHARACTER RULES: "
+    "The character's body IS the object — do not separate them. "
+    "Arms come from the SIDES of the object body. "
+    "Legs come from the BOTTOM of the object body. "
+    "Face is ON the object's main surface, not floating. "
+    "Color of limbs matches the object's material and color scheme. "
+    "Mouth must have clearly defined lips for lip-sync compatibility. "
+    "Style must be consistent throughout."
+)
+
+
+def optimize_prompt_for_category(base_prompt, category, body_style, clothing="none"):
+    """Add category-specific arm/leg/face rules and clothing to prompt."""
+    cat = category.upper().replace(" ", "_") if category else "MACHINE/TOOL"
+    rules = CATEGORY_RULES.get(cat, CATEGORY_RULES["MACHINE/TOOL"])
+
+    if body_style in ("face_arms", "face_arms_legs"):
+        base_prompt += f" Arms: {rules['arms']}."
+    if body_style == "face_arms_legs":
+        base_prompt += f" Legs: {rules['legs']}."
+    if body_style == "face_wheels":
+        base_prompt += f" Legs: rolling wheels matching the object color."
+
+    base_prompt += f" Face size: {rules['face_size']}. Eye style: {rules['eye_style']}."
+
+    # Clothing
+    cloth = CLOTHING_OPTIONS.get(clothing, "")
+    if cloth:
+        base_prompt += f" {cloth} The clothing fits the character's body shape naturally, sized proportionally."
+
+    base_prompt += f" {UNIVERSAL_RULES}"
+    return base_prompt
+
 SYSTEM_PROMPT = """You are an expert industrial product photographer and Pixar character designer specialized in creating "talking object" characters from real product photos.
 
-When you receive a photo of a machine or object, follow these steps EXACTLY:
+When you receive a photo of ANY object, follow these steps EXACTLY:
 
-## STEP 1 — MACHINE ANATOMY (be exhaustive)
+## STEP 0 — CATEGORIZE THE OBJECT
+Identify what category this object belongs to:
+MACHINE/TOOL, APPLIANCE, FOOD/FRUIT, VEHICLE, BODY_PART, CLOTHING, FURNITURE, NATURE, ELECTRONICS, or OTHER.
+Include the category in your JSON output as "category": "DETECTED_CATEGORY".
+
+## STEP 1 — OBJECT ANATOMY (be exhaustive)
 Describe EVERY visible component:
 - Overall shape, proportions, orientation (landscape/portrait/cubic)
 - Main body: exact color, material (metal/plastic/rubber), finish (matte/glossy/brushed/textured)
@@ -87,6 +202,7 @@ Each prompt MUST include: complete machine description, exact face placement (wi
 ## OUTPUT — Return ONLY this JSON (no markdown backticks):
 {
   "machine_type": "string",
+  "category": "MACHINE/TOOL or FOOD/FRUIT or APPLIANCE etc",
   "personality": "string",
   "catchphrase_gr": "Greek string",
   "face_placement": {
@@ -390,7 +506,9 @@ def generate_image(client, original_image, prompt, style, expression, face_place
     return None, None
 
 
-def generate_text_only(client, description, machine_type, style, expression, body_style="face_only", background="original", camera_angle="original"):
+def generate_text_only(client, description, machine_type, style, expression,
+                       body_style="face_only", background="original", camera_angle="original",
+                       category="MACHINE/TOOL", clothing="none"):
     """Generate image from text description only (no reference photo)."""
     from google.genai import types
 
@@ -415,21 +533,16 @@ def generate_text_only(client, description, machine_type, style, expression, bod
         "cyberpunk": "cyberpunk neon style, glowing neon lights, dark background, holographic UI",
     }.get(style, "3D rendered")
 
-    body_desc = {
-        "face_only": "",
-        "face_arms": "Small mechanical robot arms on the sides with 3-fingered hands. ",
-        "face_arms_legs": "Mechanical robot arms on sides and short sturdy legs at bottom. Wall-E style. ",
-        "face_wheels": "Cartoon wheels at the bottom so it can drive around. ",
-    }.get(body_style, "")
-
     prompt = (
-        f"{style_desc} 3D render of a {machine_type} woodworking machine character. "
-        f"The machine has {description}. "
+        f"{style_desc} 3D render of a {machine_type} character. "
+        f"The object is: {description}. "
         f"Anthropomorphic face: expressive eyes with eyebrows, a mouth with {expr_desc}. "
         f"{body_desc}"
-        f"Toolgini branding. Ultra-detailed, professional render."
+        f"Anthropomorphic face: expressive eyes with eyebrows, mouth with {expr_desc}. "
+        f"Ultra-detailed, professional render."
     )
 
+    prompt = optimize_prompt_for_category(prompt, category, body_style, clothing)
     print(f"[DEBUG] Text-only prompt ({len(prompt)} chars): {prompt[:300]}...")
 
     for attempt in range(3):

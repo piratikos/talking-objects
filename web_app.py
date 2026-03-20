@@ -27,6 +27,7 @@ load_dotenv()
 from talking_objects import (
     get_client, call_gemini_analysis, generate_image, _short_prompt,
     generate_text_only, generate_group_shot, TOOLGINI_TEAM,
+    optimize_prompt_for_category, CLOTHING_OPTIONS,
     parse_response, load_presets, suggest_preset,
     STYLES, ALL_STYLES, EXPRESSIONS
 )
@@ -196,18 +197,17 @@ def get_angle_prompt(angle, style):
 
 
 def do_generate(image, style, expression, body_style, face_placement,
-                background="original", camera_angle="original", custom_bg=""):
+                background="original", camera_angle="original", custom_bg="",
+                category="MACHINE/TOOL", clothing="none"):
     client = get_client()
     gen_styles = STYLES if style == "all" else [style]
-    body_extra = BODY_PROMPTS.get(body_style, "")
     results = {}
 
-    print(f"[DEBUG] do_generate: style={style} expr={expression} body={body_style} bg={background} angle={camera_angle}")
+    print(f"[DEBUG] do_generate: style={style} expr={expression} body={body_style} bg={background} angle={camera_angle} cat={category} cloth={clothing}")
 
     for s in gen_styles:
         prompt = _short_prompt(s, expression, face_placement)
-        if body_extra:
-            prompt += " " + body_extra
+        prompt = optimize_prompt_for_category(prompt, category, body_style, clothing)
         bg = get_bg_prompt(background, s, custom_bg)
         if bg:
             prompt += " " + bg
@@ -215,7 +215,7 @@ def do_generate(image, style, expression, body_style, face_placement,
         if ang:
             prompt += " " + ang
 
-        print(f"[DEBUG] Style={s}: prompt has body={'YES' if body_extra else 'no'} bg={'YES' if bg else 'no'} angle={'YES' if ang else 'no'}")
+        print(f"[DEBUG] Style={s}: cat={category} cloth={clothing} bg={'YES' if bg else 'no'} angle={'YES' if ang else 'no'}")
         img_data, mime = generate_image(client, image, prompt, s, expression, face_placement)
         if img_data:
             b64 = base64.b64encode(img_data).decode("utf-8")
@@ -410,6 +410,7 @@ def upload():
     background = request.form.get('background', 'original')
     camera_angle = request.form.get('camera_angle', 'original')
     custom_bg = request.form.get('custom_bg', '')
+    clothing = request.form.get('clothing', 'none')
     gen_images = request.form.get('generate_images', 'true') == 'true'
 
     user_dir = get_user_dir()
@@ -454,9 +455,11 @@ def upload():
         result["status"] = "complete"
 
         if gen_images:
+            detected_cat = data.get("category", "MACHINE/TOOL")
             gen_results = do_generate(image, style, expression, body_style,
                                       data.get("face_placement", {}),
-                                      background, camera_angle, custom_bg)
+                                      background, camera_angle, custom_bg,
+                                      detected_cat, clothing)
             result["generated_images"] = gen_results
 
             # Save files
@@ -495,13 +498,15 @@ def regenerate():
     background = request.form.get('background', 'original')
     camera_angle = request.form.get('camera_angle', 'original')
     custom_bg = request.form.get('custom_bg', '')
+    clothing = request.form.get('clothing', 'none')
 
     try:
         image = prepare_image(upload_path)
         face = (analysis or {}).get("face_placement", {})
+        detected_cat = (analysis or {}).get("category", "MACHINE/TOOL")
 
         gen_results = do_generate(image, style, expression, body_style, face,
-                                  background, camera_angle, custom_bg)
+                                  background, camera_angle, custom_bg, detected_cat, clothing)
 
         user_dir = get_user_dir()
         project_id = session.get('project_id')
@@ -578,17 +583,19 @@ def generate_text():
     body_style = request.form.get('body_style', 'face_only')
     background = request.form.get('background', 'original')
     camera_angle = request.form.get('camera_angle', 'original')
+    clothing = request.form.get('clothing', 'none')
+    category = request.form.get('category', 'MACHINE/TOOL')
 
     if not description:
-        return jsonify({"error": "Please describe your machine"}), 400
+        return jsonify({"error": "Please describe your object"}), 400
 
-    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / {body_style}")
+    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / {body_style} / cat={category}")
 
     try:
         client = get_client()
         img_data, mime = generate_text_only(
             client, description, machine_type, style, expression,
-            body_style, background, camera_angle
+            body_style, background, camera_angle, category, clothing
         )
 
         result = {"status": "complete", "generated_images": {}, "machine_type": machine_type}

@@ -112,6 +112,7 @@ if (generateBtn) {
         fd2.append('background', bg);
         fd2.append('camera_angle', angle);
         fd2.append('custom_bg', customBg);
+        fd2.append('clothing', $('clothing-select')?.value || 'none');
         fd2.append('generate_images', gen);
         if (personality) fd2.append('personality', personality);
 
@@ -143,6 +144,7 @@ if ($('regen-btn')) {
         fd.append('background', $('regen-bg')?.value || 'original');
         fd.append('camera_angle', $('regen-angle')?.value || 'original');
         fd.append('custom_bg', $('regen-custom-bg')?.value || '');
+        fd.append('clothing', $('clothing-select')?.value || 'none');
 
         btn.textContent = 'Generating...';
         btn.classList.add('loading');
@@ -346,6 +348,7 @@ if (generateBtn) {
             fd.append('body_style', $('body-select')?.value || 'face_only');
             fd.append('background', $('bg-select')?.value || 'original');
             fd.append('camera_angle', $('angle-select')?.value || 'original');
+            fd.append('clothing', $('clothing-select')?.value || 'none');
 
             showLoading();
             try {
