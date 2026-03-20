@@ -47,19 +47,37 @@ Describe EVERY visible component:
 - Atmospheric effects, mood, camera angle and distance
 
 ## STEP 3 — FACE DESIGN
-EYES: First look for existing features that resemble eyes (LEDs, displays, sensors). Describe EXACT position. Iris color matching machine accent color.
-MOUTH: Find largest flat panel on FRONT. Must NOT cover logos/controls. Describe EXACT position.
+IMPORTANT PLACEMENT RULES:
+- Face (eyes + mouth) should be on the UPPER portion of the machine body
+- Eyes on the top/head area of the machine
+- Mouth just below the eyes but still on the upper body
+- The brand logo and any text labels must remain completely visible and unobstructed
+- Place facial features ABOVE or AWAY from any logos
+- NEVER place face features on control panels, displays, or ventilation areas
+
+EYES: Look for the upper part of the machine body. Prefer existing features (LEDs, displays, sensors) as eye locations. Describe EXACT position. Iris color matching machine accent color.
+MOUTH: Below the eyes on the upper body area. Must NOT cover logos, controls, or labels. Describe EXACT position relative to other features.
+EYEBROWS: Thick, expressive eyebrows ABOVE the eyes — essential for showing emotion.
 PERSONALITY: Auto-detect from shape language (round=friendly, angular=powerful, complex=clever).
 
 ## STEP 4 — GENERATE PROMPTS (3 styles x 4 expressions = 12 total)
 
 ### STYLE A: CARTOON — Bold, friendly. Thomas the Tank Engine style.
+Features: large eyes with thick outlines, thick expressive eyebrows, wide mouth with simple curves, bold colors.
+
 ### STYLE B: PIXAR — High-quality 3D, cinematic. Cars/Wall-E style.
+Features: detailed realistic eyes with eyelids and catchlights, thick 3D eyebrows, mouth with pink lips and visible teeth when smiling, subsurface scattering on face features, ambient occlusion, soft rim lighting, professional 3D character design. Face features have slight 3D relief — integrated into surface, not flat stickers.
+
 ### STYLE C: REALISTIC — Subtle, integrated into machine design.
+Features: eyes look like indicator lights, mouth looks like a panel seam, features don't break industrial aesthetic.
 
-### EXPRESSIONS: NEUTRAL, HAPPY, SERIOUS, SURPRISED
+### EXPRESSIONS (with eyebrow guidance):
+- NEUTRAL: Calm confident. Relaxed eyebrows, slight smile.
+- HAPPY: Big smile showing teeth, bright eyes, RAISED eyebrows.
+- SERIOUS: Focused eyes, firm mouth, ANGLED DOWN eyebrows.
+- SURPRISED: Wide round eyes, open O mouth, HIGH RAISED eyebrows.
 
-Each prompt MUST include: complete machine description, exact face placement, full environment, style-specific quality notes.
+Each prompt MUST include: complete machine description, exact face placement (with logo protection note), full environment, style-specific quality notes.
 
 ## STEP 5 — ANIMATION PROMPT
 "Animate this character speaking to camera. Lip sync, blinks every 3-4s, subtle body sway. Camera static."
@@ -182,29 +200,93 @@ def call_gemini_analysis(client, image, personality_override=None):
     sys.exit(1)
 
 
-def generate_image(client, original_image, prompt, style, expression):
-    """Step 2: Generate image with Gemini 2.5 Flash image generation."""
+def _short_prompt(style, expression, face_placement=None):
+    """Generate short, precise prompts for Gemini Flash Image generation."""
+    face = face_placement or {}
+    eyes_pos = face.get("eyes", "on the upper portion of the machine body")
+    mouth_pos = face.get("mouth", "on the front panel below the eyes")
+    eyes_color = face.get("eyes_color", "matching the machine accent color")
+
+    expr_desc = {
+        "neutral": "calm confident expression, slight smile",
+        "happy": "big warm smile showing teeth, bright cheerful eyes, raised eyebrows",
+        "serious": "determined focused expression, firm mouth, angled eyebrows",
+        "surprised": "wide round eyes, open O-shaped mouth, raised eyebrows",
+    }.get(expression, "neutral expression")
+
+    placement_rules = (
+        f"Place eyes {eyes_pos}. Place mouth {mouth_pos}. "
+        "CRITICAL RULES: "
+        "1) Do NOT cover or alter any logos, brand text, or labels — they must remain fully visible. "
+        "2) Face features must be ON the machine surface, not floating outside. "
+        "3) Do NOT change machine shape, add limbs, or modify mechanical parts. "
+        "4) Features should look PART of the machine, integrated into the surface with slight 3D relief. "
+        "5) Keep the EXACT same background, lighting, and environment. "
+        "6) Add thick expressive eyebrows above the eyes showing emotion."
+    )
+
+    if style == "cartoon":
+        return (
+            f"Edit this photo: add a cartoon face directly on the machine's upper body surface. "
+            f"Add two big round cartoon eyes with {eyes_color} irises, white sclera, black pupils, and thick outlines. "
+            f"Add thick expressive cartoon eyebrows above the eyes. "
+            f"Add a wide friendly mouth with simple curved lips. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: high-quality cartoon decal painted onto the machine surface, bold outlines."
+        )
+
+    elif style == "pixar":
+        return (
+            f"Edit this photo: add a Pixar-style 3D animated face on the machine's upper body surface. "
+            f"Add two expressive 3D eyes with {eyes_color} irises, detailed pupils, subtle eyelids, small light reflections. "
+            f"Add thick 3D eyebrows above the eyes showing emotion. "
+            f"Add a 3D mouth with soft pink lips and visible white teeth. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: Pixar animation quality, subsurface scattering on face features, ambient occlusion, soft rim lighting, professional 3D character design."
+        )
+
+    else:  # realistic
+        return (
+            f"Edit this photo: subtly add face-like features to the machine's front surface. "
+            f"Add two glowing eye-like indicators with {eyes_color} glow at the eye positions. "
+            f"Add a subtle mouth-like crease or shadow line. "
+            f"{expr_desc}. "
+            f"{placement_rules} "
+            "Style: photorealistic, features look like real machine parts — indicator lights for eyes, panel seam for mouth."
+        )
+
+
+def generate_image(client, original_image, prompt, style, expression, face_placement=None):
+    """Step 2: Generate image with Gemini 2.5 Flash Image (nano-banana)."""
     from google.genai import types
 
-    gen_prompt = f"Transform this machine photo into a talking character. {prompt}"
+    gen_prompt = _short_prompt(style, expression, face_placement)
 
     for attempt in range(3):
         try:
             response = client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[original_image, gen_prompt],
+                model="gemini-2.5-flash-image",
+                contents=[gen_prompt, original_image],
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],
-                    temperature=0.8,
                 )
             )
 
             # Extract image from response
-            if response.candidates and response.candidates[0].content.parts:
+            if (response.candidates
+                    and response.candidates[0].content
+                    and response.candidates[0].content.parts):
                 for part in response.candidates[0].content.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data is not None:
+                    if part.inline_data is not None:
                         return part.inline_data.data, part.inline_data.mime_type
 
+            # No image in response — might be filtered or empty
+            if attempt < 2:
+                print("empty response, retrying...", end=" ", flush=True)
+                time.sleep(3)
+                continue
             return None, None
 
         except Exception as e:
@@ -218,7 +300,7 @@ def generate_image(client, original_image, prompt, style, expression):
                 print(f"    Content filter blocked {style}_{expression}, skipping")
                 return None, None
             if attempt < 2:
-                time.sleep(2)
+                time.sleep(3)
                 continue
             print(f"    Image gen failed for {style}_{expression}: {e}")
             return None, None
@@ -411,16 +493,17 @@ def process_single(image_path, args):
                 label = f"{style}_{gen_expression}" + (f"_v{v+1}" if variants > 1 else "")
                 print(f"    [{gen_idx}/{total_gen}] {label}...", end=" ", flush=True)
 
-                img_data, mime = generate_image(client, image, prompt, style, gen_expression)
+                face = data.get("face_placement", {})
+                img_data, mime = generate_image(client, image, prompt, style, gen_expression, face)
                 if img_data:
                     generated_images[label] = (img_data, mime)
                     print("OK")
                 else:
                     print("skipped")
 
-                # Small delay to avoid rate limits
+                # 3s delay between generations to avoid rate limits
                 if gen_idx < total_gen:
-                    time.sleep(1)
+                    time.sleep(3)
 
     # Save everything
     prompt_count, img_count = save_outputs(data, output_dir, input_name, generated_images)

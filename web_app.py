@@ -115,7 +115,8 @@ def process_image(image, style="all", expression="neutral", personality=None, ge
             if not prompt:
                 continue
 
-            img_data, mime = generate_image(client, image, prompt, s, expression)
+            face = data.get("face_placement", {})
+            img_data, mime = generate_image(client, image, prompt, s, expression, face)
             if img_data:
                 b64 = base64.b64encode(img_data).decode("utf-8")
                 result["generated_images"][f"{s}_{expression}"] = {
