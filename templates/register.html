@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — Talking Objects Maker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Talking Objects Maker</h1>
+        <p class="subtitle">Create your account</p>
+    </header>
+
+    <div class="auth-card">
+        <h2>Register</h2>
+        {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
+        <form method="POST" action="/register">
+            <div class="auth-field">
+                <label>Name</label>
+                <input type="text" name="name" required placeholder="Your name">
+            </div>
+            <div class="auth-field">
+                <label>Email</label>
+                <input type="email" name="email" required placeholder="you@example.com">
+            </div>
+            <div class="auth-field">
+                <label>Password</label>
+                <input type="password" name="password" required placeholder="Min 4 characters" minlength="4">
+            </div>
+            <button type="submit" class="btn-primary">Create Account</button>
+        </form>
+        <div class="auth-links">
+            <a href="/login">Already have an account? Sign in</a>
+        </div>
+    </div>
+
+    <footer>Made with care by Toolgini — woodmachine.gr</footer>
+</div>
+</body>
+</html>

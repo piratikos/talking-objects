@@ -9,8 +9,25 @@
 <body>
     <div class="container">
         <header>
-            <h1>Talking Objects Maker</h1>
-            <p class="subtitle">Powered by Toolgini x Gemini AI</p>
+            <div class="header-row">
+                <div>
+                    <h1>Talking Objects Maker</h1>
+                    <p class="subtitle">Powered by Toolgini x Gemini AI</p>
+                </div>
+                <div class="user-badge">
+                    <span class="avatar">{{ user_name[0] }}</span>
+                    <span>{{ user_name }}</span>
+                    {% if not is_guest %}
+                    <a href="/projects" class="btn-small-secondary">My Projects</a>
+                    <a href="/logout" class="btn-small-secondary">Logout</a>
+                    {% else %}
+                    <a href="/register" class="btn-small-secondary">Sign up</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if is_guest %}
+            <div class="guest-banner">Sign up to save your projects permanently!</div>
+            {% endif %}
         </header>
 
         <!-- UPLOAD SECTION -->

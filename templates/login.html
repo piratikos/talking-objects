@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Talking Objects Maker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Talking Objects Maker</h1>
+        <p class="subtitle">Powered by Toolgini x Gemini AI</p>
+    </header>
+
+    <div class="auth-card">
+        <h2>Sign In</h2>
+        {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
+        <form method="POST" action="/login">
+            <div class="auth-field">
+                <label>Email</label>
+                <input type="email" name="email" required placeholder="you@example.com">
+            </div>
+            <div class="auth-field">
+                <label>Password</label>
+                <input type="password" name="password" required placeholder="Your password">
+            </div>
+            <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+        <div class="auth-links">
+            <a href="/register">Create account</a>
+            <a href="/guest">Continue as guest</a>
+        </div>
+    </div>
+
+    <div class="guest-banner">
+        <p>No account? <a href="/guest">Continue as guest</a> — images will be temporary.</p>
+    </div>
+
+    <footer>Made with care by Toolgini — woodmachine.gr</footer>
+</div>
+</body>
+</html>

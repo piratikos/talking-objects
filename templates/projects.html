@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Projects — Talking Objects Maker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="header-row">
+            <h1>My Projects</h1>
+            <div class="user-badge">
+                <span class="avatar">{{ user_name[0] }}</span>
+                <span>{{ user_name }}</span>
+                <a href="/logout" class="btn-small-secondary">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="project-actions">
+        <a href="/app" class="btn-primary" style="display:inline-block;width:auto;padding:10px 24px;text-decoration:none;text-align:center;">+ New Project</a>
+    </div>
+
+    {% if projects %}
+    <div class="projects-grid">
+        {% for p in projects %}
+        <div class="project-card">
+            <div class="project-info">
+                <h3>{{ p.machine_type or p.original_filename or 'Untitled' }}</h3>
+                <p class="small">{{ p.personality or '' }}</p>
+                {% if p.catchphrase %}<p class="catchphrase-small">"{{ p.catchphrase }}"</p>{% endif %}
+                <p class="small">{{ p.gen_count }} images | {{ p.created_at[:10] }}</p>
+            </div>
+            <form method="POST" action="/projects/{{ p.id }}/delete" class="project-delete"
+                  onsubmit="return confirm('Delete this project?')">
+                <button type="submit" class="btn-small-secondary">Delete</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No projects yet. <a href="/app">Create your first one!</a></p>
+    </div>
+    {% endif %}
+
+    <footer>Made with care by Toolgini — woodmachine.gr</footer>
+</div>
+</body>
+</html>

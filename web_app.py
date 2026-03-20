@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Talking Objects Maker v2 — Flask Web Interface
-Upload photo → analyze → generate images → regenerate with different settings.
-Session gallery keeps all generated images. API at /api/generate.
+Talking Objects Maker v3 — Flask Web Interface with User Accounts
+Upload photo → analyze → generate → regenerate. User accounts with SQLite.
 """
 
 import base64
@@ -18,7 +17,8 @@ from functools import wraps
 from threading import Lock
 
 from flask import (Flask, render_template, request, jsonify, send_file,
-                   send_from_directory, session)
+                   send_from_directory, session, redirect, url_for, flash)
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from dotenv import load_dotenv
 import PIL.Image
 
@@ -29,6 +29,11 @@ from talking_objects import (
     parse_response, load_presets, suggest_preset,
     STYLES, EXPRESSIONS
 )
+from models import (
+    create_user, authenticate_user, get_user_by_id,
+    create_project, get_user_projects, get_project, delete_project,
+    add_generation
+)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("APP_SECRET", "toolgini-talking-objects-2026")
@@ -36,115 +41,114 @@ app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = Path(__file__).parent / 'uploads'
 app.config['RESULTS_FOLDER'] = Path(__file__).parent / 'results'
 
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
-BODY_STYLES = ['face_only', 'face_arms', 'face_arms_legs', 'face_wheels']
 
 _rate_lock = Lock()
 _rate_log = []
 RATE_LIMIT = 10
 
+# ── Config data (backgrounds, angles, body) ──────────────────
+
 BACKGROUNDS = {
     "original": {},
     "toolgini_workshop": {
-        "cartoon": "Colorful cartoon workshop background with wooden shelves full of tools, warm yellow lighting, wood shavings on the floor, TOOLGINI sign on the wall, cartoon style matching the character",
-        "pixar": "Pixar-style 3D rendered professional dark workshop with wooden workbench, pegboard wall with hanging tools, warm dramatic desk lamp lighting, floating sawdust particles, TOOLGINI wooden sign on brick wall, cinematic depth of field",
-        "realistic": "Professional woodworking workshop photograph, dark moody lighting with warm tones, tools on pegboard wall, sawdust on surfaces, industrial desk lamp, shallow depth of field background blur",
+        "cartoon": "Colorful cartoon workshop background with wooden shelves full of tools, warm yellow lighting, wood shavings on the floor, TOOLGINI sign on the wall, cartoon style",
+        "pixar": "Pixar-style 3D dark workshop with workbench, pegboard wall, warm desk lamp lighting, floating sawdust, TOOLGINI sign on brick wall, cinematic depth of field",
+        "realistic": "Professional woodworking workshop, dark moody lighting, tools on pegboard wall, sawdust, desk lamp, shallow depth of field",
     },
     "modern_showroom": {
-        "cartoon": "Clean white showroom background with spotlights, cartoon style, simple and clean",
-        "pixar": "Sleek modern product showroom with soft gradient lighting, polished concrete floor, subtle reflections, professional product photography style, 3D rendered",
-        "realistic": "Professional product photography on clean white/grey background, studio lighting with softboxes, subtle shadow, commercial catalog style",
+        "cartoon": "Clean white showroom with spotlights, cartoon style",
+        "pixar": "Sleek modern showroom, soft gradient lighting, polished floor, reflections, 3D rendered",
+        "realistic": "Product photography on white/grey background, studio softbox lighting, catalog style",
     },
     "trade_show": {
-        "cartoon": "Cartoon trade show booth with colorful banners, exhibition hall, other cartoon machines in background",
-        "pixar": "3D rendered trade show exhibition booth with professional banners, bright exhibition hall lighting, other machines visible in background, TOOLGINI branding on booth",
-        "realistic": "Real woodworking trade show exhibition floor, professional booth setup, bright overhead exhibition lighting, visitors in background blurred, commercial photography",
+        "cartoon": "Cartoon trade show booth, colorful banners, exhibition hall",
+        "pixar": "3D trade show booth, professional banners, bright hall lighting, TOOLGINI branding",
+        "realistic": "Woodworking trade show floor, booth setup, exhibition lighting, blurred visitors",
     },
     "carpenters_dream": {
-        "cartoon": "Cozy cartoon carpenter workshop with wooden everything, fireplace glow, vintage tools, warm and inviting",
-        "pixar": "Beautiful Pixar-style old carpenter workshop, golden afternoon light streaming through dusty windows, wooden beams overhead, vintage hand tools on walls, rich warm color palette, nostalgic atmosphere",
-        "realistic": "Traditional carpenter's workshop, golden hour sunlight through windows, dust particles in light beams, worn wooden workbench, patina on tools, warm nostalgic photography",
+        "cartoon": "Cozy cartoon carpenter workshop, fireplace glow, vintage tools",
+        "pixar": "Pixar old carpenter workshop, golden light through dusty windows, wooden beams, vintage tools, warm palette",
+        "realistic": "Traditional workshop, golden hour sunlight, dust in light beams, worn workbench, warm nostalgic photography",
     },
     "outdoor": {
-        "cartoon": "Cartoon outdoor scene, green grass, blue sky, trees, the machine stands proudly outside",
-        "pixar": "Pixar-style outdoor mountain meadow with wildflowers, golden hour sunlight, dramatic clouds, the machine stands heroically, cinematic wide shot",
-        "realistic": "Outdoor setting with natural light, green landscape background, professional outdoor product photography",
+        "cartoon": "Cartoon outdoor scene, green grass, blue sky, trees",
+        "pixar": "Pixar outdoor meadow, golden hour, dramatic clouds, cinematic wide shot",
+        "realistic": "Outdoor natural light, green landscape, professional product photography",
     },
     "studio": {
-        "cartoon": "Solid dark background with dramatic cartoon spotlights, clean minimal studio",
-        "pixar": "Solid dark grey background with dramatic rim lighting highlighting the machine edges, professional 3D studio render, volumetric light, clean and minimal",
-        "realistic": "Solid dark grey (#1a1a1a) background with dramatic rim lighting highlighting the machine edges, professional studio product photography, clean and minimal",
+        "cartoon": "Solid dark background, dramatic spotlights, clean studio",
+        "pixar": "Dark grey background, dramatic rim lighting, volumetric light, 3D studio render",
+        "realistic": "Dark grey background, rim lighting, professional studio product photography",
     },
 }
 
 CAMERA_ANGLES = {
     "original": {},
     "front_facing": {
-        "cartoon": "Front-facing view, the character looks directly at the viewer, cartoon composition",
-        "pixar": "Cinematic front-facing hero shot, the character looks directly into camera with confident expression, shallow depth of field, Pixar movie poster composition",
-        "realistic": "Straight-on frontal product photograph, centered, professional composition",
+        "cartoon": "Front-facing view, character looks at viewer, cartoon composition",
+        "pixar": "Cinematic front-facing hero shot, confident expression, shallow depth of field, movie poster",
+        "realistic": "Straight-on frontal product photograph, centered, professional",
     },
     "three_quarter": {
-        "cartoon": "Slight 3/4 angle view showing depth, cartoon perspective",
-        "pixar": "Cinematic 3/4 angle shot showing both the front and side of the character, dramatic lighting, Pixar movie still composition",
-        "realistic": "Professional 3/4 angle product photography, showing depth and form, studio lighting",
+        "cartoon": "3/4 angle showing depth, cartoon perspective",
+        "pixar": "Cinematic 3/4 angle, dramatic lighting, movie still composition",
+        "realistic": "Professional 3/4 angle product photography, studio lighting",
     },
     "low_angle": {
-        "cartoon": "Low angle looking up at the character, making it look big and powerful, cartoon hero pose",
-        "pixar": "Dramatic low-angle cinematic shot looking up at the character, heroic pose, dramatic rim lighting from behind, Pixar movie poster style",
-        "realistic": "Low angle product photography looking up, making the machine appear imposing and powerful",
+        "cartoon": "Low angle looking up, big and powerful, hero pose",
+        "pixar": "Dramatic low-angle, heroic pose, rim lighting from behind, movie poster style",
+        "realistic": "Low angle product photography, imposing and powerful",
     },
     "eye_level": {
-        "cartoon": "Eye level straight-on view, face to face with the character, friendly cartoon angle",
-        "pixar": "Eye-level medium shot, face to face with the character, intimate Pixar close-up, bokeh background",
-        "realistic": "Eye level product photograph, straight on, as if looking at it face to face",
+        "cartoon": "Eye level, face to face, friendly angle",
+        "pixar": "Eye-level medium shot, intimate close-up, bokeh background",
+        "realistic": "Eye level product photograph, face to face",
     },
     "isometric": {
-        "cartoon": "Isometric top-down 3/4 angle, clean cartoon product illustration",
-        "pixar": "Isometric 3/4 top-down angle, clean 3D product visualization, even lighting, Pixar quality render",
-        "realistic": "Isometric product shot from above, clean professional catalog photography",
+        "cartoon": "Isometric top-down 3/4 angle, clean illustration",
+        "pixar": "Isometric 3/4 top-down, clean 3D visualization, even lighting",
+        "realistic": "Isometric product shot, clean catalog photography",
     },
 }
-
-
-def get_background_prompt(bg_key, style, custom_text=""):
-    if bg_key == "original" or bg_key not in BACKGROUNDS:
-        if bg_key == "custom" and custom_text:
-            return f"BACKGROUND CHANGE: Remove the original background and replace with: {custom_text}"
-        return ""
-    bg = BACKGROUNDS[bg_key].get(style, BACKGROUNDS[bg_key].get("pixar", ""))
-    return f"BACKGROUND CHANGE: Remove the original background and replace with: {bg}"
-
-
-def get_angle_prompt(angle_key, style):
-    if angle_key == "original" or angle_key not in CAMERA_ANGLES:
-        return ""
-    angle = CAMERA_ANGLES[angle_key].get(style, CAMERA_ANGLES[angle_key].get("pixar", ""))
-    return f"Camera angle: {angle}"
-
 
 BODY_PROMPTS = {
     "face_only": "",
     "face_arms": (
-        "Also add small cartoon robot-style arms to the machine. "
-        "Thin metallic mechanical appendages from the sides with 3-fingered hands. "
-        "Arms match the machine color scheme. Wall-E style — simple, charming, mechanical. "
-        "Machine body shape and proportions must NOT change."
+        "Also add small robot-style arms from the sides with 3-fingered hands. "
+        "Metallic, Wall-E style. Machine body must NOT change."
     ),
     "face_arms_legs": (
-        "Also add small cartoon robot-style arms and legs to the machine. "
-        "Arms: thin metallic appendages from the sides with 3-fingered hands. "
-        "Legs: short sturdy mechanical legs at the bottom so the machine can stand. "
-        "Arms and legs match machine color — metallic, industrial. Wall-E style. "
-        "Machine body shape must NOT change."
+        "Also add robot arms from sides with 3-fingered hands and short sturdy legs at bottom. "
+        "Metallic, industrial, Wall-E style. Machine body must NOT change."
     ),
     "face_wheels": (
-        "Also add small cartoon wheels at the bottom of the machine so it looks mobile. "
-        "2-4 round cartoon wheels matching the machine color. "
-        "Machine body shape must NOT change."
+        "Also add cartoon wheels at the bottom. 2-4 round wheels matching machine color. "
+        "Machine body must NOT change."
     ),
 }
 
+
+# ── Auth ──────────────────────────────────────────────────────
+
+class User(UserMixin):
+    def __init__(self, user_dict):
+        self.id = user_dict["id"]
+        self.email = user_dict["email"]
+        self.name = user_dict["name"]
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    u = get_user_by_id(int(user_id))
+    return User(u) if u else None
+
+
+# ── Helpers ───────────────────────────────────────────────────
 
 def rate_limited(f):
     @wraps(f)
@@ -159,28 +163,39 @@ def rate_limited(f):
     return decorated
 
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(fn):
+    return '.' in fn and fn.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def prepare_image(src):
-    if isinstance(src, (str, Path)):
-        img = PIL.Image.open(src)
-    else:
-        img = PIL.Image.open(src)
+    img = PIL.Image.open(src if isinstance(src, (str, Path)) else src)
     w, h = img.size
-    mx = 1568
-    if max(w, h) > mx:
-        r = mx / max(w, h)
+    if max(w, h) > 1568:
+        r = 1568 / max(w, h)
         img = img.resize((int(w * r), int(h * r)), PIL.Image.LANCZOS)
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
     return img
 
 
+def get_bg_prompt(bg, style, custom=""):
+    if bg == "custom" and custom:
+        return f"BACKGROUND CHANGE: Replace background with: {custom}"
+    if bg == "original" or bg not in BACKGROUNDS:
+        return ""
+    txt = BACKGROUNDS[bg].get(style, BACKGROUNDS[bg].get("pixar", ""))
+    return f"BACKGROUND CHANGE: Replace background with: {txt}"
+
+
+def get_angle_prompt(angle, style):
+    if angle == "original" or angle not in CAMERA_ANGLES:
+        return ""
+    txt = CAMERA_ANGLES[angle].get(style, CAMERA_ANGLES[angle].get("pixar", ""))
+    return f"Camera angle: {txt}"
+
+
 def do_generate(image, style, expression, body_style, face_placement,
                 background="original", camera_angle="original", custom_bg=""):
-    """Generate image(s) with optional body/background/angle modifications."""
     client = get_client()
     gen_styles = STYLES if style == "all" else [style]
     body_extra = BODY_PROMPTS.get(body_style, "")
@@ -190,31 +205,122 @@ def do_generate(image, style, expression, body_style, face_placement,
         prompt = _short_prompt(s, expression, face_placement)
         if body_extra:
             prompt += " " + body_extra
-        bg_prompt = get_background_prompt(background, s, custom_bg)
-        if bg_prompt:
-            prompt += " " + bg_prompt
-        angle_prompt = get_angle_prompt(camera_angle, s)
-        if angle_prompt:
-            prompt += " " + angle_prompt
+        bg = get_bg_prompt(background, s, custom_bg)
+        if bg:
+            prompt += " " + bg
+        ang = get_angle_prompt(camera_angle, s)
+        if ang:
+            prompt += " " + ang
 
         img_data, mime = generate_image(client, image, prompt, s, expression, face_placement)
         if img_data:
             b64 = base64.b64encode(img_data).decode("utf-8")
-            results[f"{s}_{expression}"] = {"data": b64, "mime": mime or "image/png"}
+            results[f"{s}_{expression}"] = {
+                "data": b64, "mime": mime or "image/png", "prompt": prompt
+            }
         time.sleep(3)
 
     return results
 
 
+def get_user_dir():
+    if current_user.is_authenticated:
+        return str(current_user.id)
+    return session.get('session_id') or str(uuid.uuid4())[:12]
+
+
+# ── Auth routes ───────────────────────────────────────────────
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('app_page'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '')
+        password = request.form.get('password', '')
+        user = authenticate_user(email, password)
+        if user:
+            login_user(User(user), remember=True)
+            return redirect(url_for('app_page'))
+        return render_template('login.html', error="Wrong email or password")
+
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        name = request.form.get('name', '').strip()
+
+        if not email or not password or not name:
+            return render_template('register.html', error="All fields required")
+        if len(password) < 4:
+            return render_template('register.html', error="Password too short (min 4)")
+
+        user = create_user(email, password, name)
+        if user is None:
+            return render_template('register.html', error="Email already registered")
+
+        login_user(User(user), remember=True)
+        return redirect(url_for('app_page'))
+
+    return render_template('register.html')
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+
+# ── Main routes ───────────────────────────────────────────────
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    if current_user.is_authenticated:
+        return redirect(url_for('app_page'))
+    return redirect(url_for('login'))
 
+
+@app.route('/app')
+def app_page():
+    is_guest = not current_user.is_authenticated
+    user_name = current_user.name if not is_guest else "Guest"
+    return render_template('index.html', user_name=user_name, is_guest=is_guest)
+
+
+@app.route('/guest')
+def guest():
+    session['session_id'] = str(uuid.uuid4())[:12]
+    return redirect(url_for('app_page'))
+
+
+@app.route('/projects')
+@login_required
+def projects_page():
+    projects = get_user_projects(current_user.id)
+    return render_template('projects.html', projects=projects, user_name=current_user.name)
+
+
+@app.route('/projects/<int:pid>/delete', methods=['POST'])
+@login_required
+def delete_project_route(pid):
+    delete_project(pid, current_user.id)
+    # Clean files
+    proj_dir = app.config['RESULTS_FOLDER'] / str(current_user.id) / str(pid)
+    if proj_dir.exists():
+        shutil.rmtree(proj_dir, ignore_errors=True)
+    return redirect(url_for('projects_page'))
+
+
+# ── Upload / Generate / Regenerate ────────────────────────────
 
 @app.route('/upload', methods=['POST'])
 @rate_limited
 def upload():
-    """Initial upload: analyze + generate."""
     if 'image' not in request.files:
         return jsonify({"error": "No image"}), 400
 
@@ -231,29 +337,24 @@ def upload():
     custom_bg = request.form.get('custom_bg', '')
     gen_images = request.form.get('generate_images', 'true') == 'true'
 
-    # Save upload persistently for regeneration
-    session_id = session.get('session_id') or str(uuid.uuid4())[:12]
-    session['session_id'] = session_id
+    user_dir = get_user_dir()
+    session['session_id'] = user_dir
 
-    upload_dir = app.config['UPLOAD_FOLDER'] / session_id
+    upload_dir = app.config['UPLOAD_FOLDER'] / user_dir
     upload_dir.mkdir(parents=True, exist_ok=True)
-
     ext = file.filename.rsplit('.', 1)[1].lower()
     upload_path = upload_dir / f"original.{ext}"
     file.save(str(upload_path))
     session['upload_path'] = str(upload_path)
-    session['original_filename'] = file.filename
 
     try:
         image = prepare_image(upload_path)
 
-        # Phase 1: Analysis
         raw = call_gemini_analysis(get_client(), image, personality)
         data = parse_response(raw)
         if data is None:
             return jsonify({"error": "Failed to parse AI response"}), 500
 
-        # Store analysis in session
         analysis_info = {
             "machine_type": data.get("machine_type", ""),
             "personality": data.get("personality", ""),
@@ -264,27 +365,38 @@ def upload():
         }
         session['analysis'] = analysis_info
 
+        # Save project to DB for logged-in users
+        project_id = None
+        if current_user.is_authenticated:
+            project_id = create_project(
+                current_user.id, file.filename, str(upload_path),
+                analysis_info["machine_type"], analysis_info["personality"],
+                analysis_info["catchphrase"]
+            )
+            session['project_id'] = project_id
+
         result = dict(analysis_info)
         result["status"] = "complete"
-        result["session_id"] = session_id
 
-        # Phase 2: Generate images
         if gen_images:
             gen_results = do_generate(image, style, expression, body_style,
                                       data.get("face_placement", {}),
                                       background, camera_angle, custom_bg)
             result["generated_images"] = gen_results
 
-            # Save to disk
-            job_id = str(uuid.uuid4())[:8]
-            results_dir = app.config['RESULTS_FOLDER'] / session_id / job_id
+            # Save files
+            results_dir = app.config['RESULTS_FOLDER'] / user_dir / (str(project_id) if project_id else str(uuid.uuid4())[:8])
             results_dir.mkdir(parents=True, exist_ok=True)
 
             for key, img_info in gen_results.items():
                 img_bytes = base64.b64decode(img_info["data"])
-                (results_dir / f"{key}.png").write_bytes(img_bytes)
+                img_path = results_dir / f"{key}.png"
+                img_path.write_bytes(img_bytes)
 
-            result["job_id"] = job_id
+                if project_id:
+                    s, e = key.rsplit("_", 1)
+                    add_generation(project_id, s, e, body_style, background,
+                                   camera_angle, str(img_path), img_info.get("prompt", ""))
         else:
             result["generated_images"] = {}
 
@@ -297,10 +409,8 @@ def upload():
 @app.route('/regenerate', methods=['POST'])
 @rate_limited
 def regenerate():
-    """Regenerate with same photo, different settings."""
     upload_path = session.get('upload_path')
     analysis = session.get('analysis')
-
     if not upload_path or not Path(upload_path).exists():
         return jsonify({"error": "No photo in session. Upload first."}), 400
 
@@ -318,22 +428,22 @@ def regenerate():
         gen_results = do_generate(image, style, expression, body_style, face,
                                   background, camera_angle, custom_bg)
 
-        # Save
-        session_id = session.get('session_id', 'unknown')
-        job_id = str(uuid.uuid4())[:8]
-        results_dir = app.config['RESULTS_FOLDER'] / session_id / job_id
+        user_dir = get_user_dir()
+        project_id = session.get('project_id')
+        results_dir = app.config['RESULTS_FOLDER'] / user_dir / (str(project_id) if project_id else str(uuid.uuid4())[:8])
         results_dir.mkdir(parents=True, exist_ok=True)
 
         for key, img_info in gen_results.items():
             img_bytes = base64.b64decode(img_info["data"])
-            (results_dir / f"{key}.png").write_bytes(img_bytes)
+            img_path = results_dir / f"{key}.png"
+            img_path.write_bytes(img_bytes)
 
-        return jsonify({
-            "status": "complete",
-            "generated_images": gen_results,
-            "job_id": job_id,
-            "session_id": session_id,
-        })
+            if project_id and current_user.is_authenticated:
+                s, e = key.rsplit("_", 1)
+                add_generation(project_id, s, e, body_style, background,
+                               camera_angle, str(img_path), img_info.get("prompt", ""))
+
+        return jsonify({"status": "complete", "generated_images": gen_results})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -342,13 +452,11 @@ def regenerate():
 @app.route('/api/generate', methods=['POST'])
 @rate_limited
 def api_generate():
-    """API endpoint for programmatic access."""
     if 'image' not in request.files:
-        return jsonify({"error": "No image file provided"}), 400
-
+        return jsonify({"error": "No image file"}), 400
     file = request.files['image']
     if not file or not allowed_file(file.filename):
-        return jsonify({"error": "Invalid file. Accepted: jpg, jpeg, png, webp"}), 400
+        return jsonify({"error": "Invalid file"}), 400
 
     style = request.form.get('style', 'pixar')
     expression = request.form.get('expression', 'neutral')
@@ -361,75 +469,54 @@ def api_generate():
 
     try:
         image = prepare_image(file)
-        client = get_client()
-
-        raw = call_gemini_analysis(client, image, personality)
+        raw = call_gemini_analysis(get_client(), image, personality)
         data = parse_response(raw)
-        if data is None:
-            return jsonify({"error": "Failed to parse AI response"}), 500
+        if not data:
+            return jsonify({"error": "Parse failed"}), 500
 
         result = {
             "machine_type": data.get("machine_type", ""),
             "personality": data.get("personality", ""),
-            "catchphrase": data.get("catchphrase_gr", ""),
             "face_placement": data.get("face_placement", {}),
             "prompts": data.get("prompts", {}),
-            "animation_prompt": data.get("animation_prompt", ""),
+            "status": "complete",
         }
-
         if gen_images:
             result["generated_images"] = do_generate(
                 image, style, expression, body_style, data.get("face_placement", {}),
                 background, camera_angle, custom_bg)
         else:
             result["generated_images"] = {}
-
-        result["status"] = "complete"
         return jsonify(result)
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/download-all')
 def download_all_session():
-    """Download ALL images from current session as ZIP."""
-    session_id = session.get('session_id')
-    if not session_id:
-        return jsonify({"error": "No session"}), 404
-
-    session_dir = app.config['RESULTS_FOLDER'] / session_id
+    user_dir = get_user_dir()
+    session_dir = app.config['RESULTS_FOLDER'] / user_dir
     if not session_dir.exists():
         return jsonify({"error": "No results"}), 404
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, dirs, files in os.walk(session_dir):
-            for fname in files:
-                fpath = Path(root) / fname
-                arcname = fpath.relative_to(session_dir)
-                zf.write(fpath, arcname)
+            for fn in files:
+                fp = Path(root) / fn
+                zf.write(fp, fp.relative_to(session_dir))
     buf.seek(0)
-
-    return send_file(buf, mimetype='application/zip',
-                     as_attachment=True, download_name=f"talking_objects_{session_id}.zip")
-
-
-@app.route('/download/<session_id>/<job_id>/<filename>')
-def download_file(session_id, job_id, filename):
-    results_dir = app.config['RESULTS_FOLDER'] / session_id / job_id
-    return send_from_directory(str(results_dir), filename, as_attachment=True)
+    return send_file(buf, mimetype='application/zip', as_attachment=True,
+                     download_name=f"talking_objects_{user_dir}.zip")
 
 
-def cleanup_old_results(max_age_hours=24):
-    for folder in [app.config['RESULTS_FOLDER'], app.config['UPLOAD_FOLDER']]:
+def cleanup_old_results(max_age_hours=72):
+    for folder in [app.config['UPLOAD_FOLDER']]:
         if not folder.exists():
             continue
         for item in folder.iterdir():
-            if item.is_dir():
-                age = time.time() - item.stat().st_mtime
-                if age > max_age_hours * 3600:
-                    shutil.rmtree(item, ignore_errors=True)
+            if item.is_dir() and (time.time() - item.stat().st_mtime) > max_age_hours * 3600:
+                shutil.rmtree(item, ignore_errors=True)
 
 
 if __name__ == '__main__':
@@ -447,7 +534,7 @@ if __name__ == '__main__':
         import webbrowser, threading
         threading.Timer(1.5, lambda: webbrowser.open(f'http://localhost:{args.port}')).start()
 
-    print(f"\n  Talking Objects Maker v2 — Web UI")
+    print(f"\n  Talking Objects Maker v3 — Web UI + Accounts")
     print(f"  http://localhost:{args.port}")
     print(f"  http://0.0.0.0:{args.port} (network)\n")
 

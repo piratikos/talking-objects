@@ -178,3 +178,48 @@ footer { text-align: center; color: #555; font-size: 11px; padding: 24px 0 16px;
     .drop-zone { padding: 30px 14px; }
     .gallery-header { flex-direction: column; gap: 8px; }
 }
+
+/* Auth */
+.auth-card {
+    background: #2a2a2a; border-radius: 12px; padding: 24px;
+    max-width: 400px; margin: 20px auto;
+}
+.auth-card h2 { color: #FF6B00; text-align: center; margin-bottom: 16px; }
+.auth-field { margin-bottom: 12px; }
+.auth-field label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+.auth-field input { width: 100%; padding: 10px; border: 2px solid #333; border-radius: 8px; background: #222; color: #fff; font-size: 14px; }
+.auth-field input:focus { border-color: #FF6B00; outline: none; }
+.auth-error { color: #ff4444; text-align: center; font-size: 13px; margin-bottom: 12px; }
+.auth-links { text-align: center; margin-top: 16px; }
+.auth-links a { color: #FF6B00; text-decoration: none; font-size: 13px; margin: 0 8px; }
+.auth-links a:hover { text-decoration: underline; }
+
+/* User badge */
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: #FF6B00;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 14px; color: #fff; text-transform: uppercase;
+}
+
+/* Guest banner */
+.guest-banner {
+    background: rgba(255,107,0,0.1); border: 1px solid #FF6B00; border-radius: 8px;
+    padding: 8px 16px; text-align: center; font-size: 12px; color: #FF6B00; margin-top: 8px;
+}
+.guest-banner a { color: #fff; text-decoration: underline; }
+
+/* Projects page */
+.project-actions { margin: 16px 0; }
+.projects-grid { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.project-card {
+    background: #2a2a2a; border-radius: 10px; padding: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.project-card h3 { color: #FF6B00; font-size: 15px; }
+.project-card .small { color: #888; font-size: 12px; margin-top: 2px; }
+.catchphrase-small { font-style: italic; color: #FF6B00; font-size: 12px; }
+.project-delete { flex-shrink: 0; }
+.empty-state { text-align: center; padding: 40px; color: #666; }
+.empty-state a { color: #FF6B00; }
