@@ -95,13 +95,6 @@ if ($('clear-btn')) {
 if (generateBtn) {
     generateBtn.addEventListener('click', async () => {
         if (!selectedFile) return;
-        const fd = new FormData();
-        fd.append('image', selectedFile);
-        ['style-select','expression-select','body-select','bg-select','angle-select','gen-select'].forEach(id => {
-            const el = $(id);
-            if (el) fd.append(el.id.replace('-select','').replace('bg','background').replace('angle','camera_angle').replace('gen','generate_images'), el.value);
-        });
-        // Fix param names
         const style = $('style-select')?.value || 'pixar';
         const expr = $('expression-select')?.value || 'happy';
         const body = $('body-select')?.value || 'face_only';

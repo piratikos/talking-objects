@@ -262,7 +262,10 @@ def generate_image(client, original_image, prompt, style, expression, face_place
     """Step 2: Generate image with Gemini 2.5 Flash Image (nano-banana)."""
     from google.genai import types
 
-    gen_prompt = _short_prompt(style, expression, face_placement)
+    # Use the prompt passed by caller (includes body/background/angle)
+    # Only fallback to _short_prompt if caller passes empty prompt
+    gen_prompt = prompt if prompt else _short_prompt(style, expression, face_placement)
+    print(f"[DEBUG] Prompt sent to Gemini ({len(gen_prompt)} chars): {gen_prompt[:300]}...")
 
     for attempt in range(3):
         try:

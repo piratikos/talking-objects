@@ -201,6 +201,8 @@ def do_generate(image, style, expression, body_style, face_placement,
     body_extra = BODY_PROMPTS.get(body_style, "")
     results = {}
 
+    print(f"[DEBUG] do_generate: style={style} expr={expression} body={body_style} bg={background} angle={camera_angle}")
+
     for s in gen_styles:
         prompt = _short_prompt(s, expression, face_placement)
         if body_extra:
@@ -212,6 +214,7 @@ def do_generate(image, style, expression, body_style, face_placement,
         if ang:
             prompt += " " + ang
 
+        print(f"[DEBUG] Style={s}: prompt has body={'YES' if body_extra else 'no'} bg={'YES' if bg else 'no'} angle={'YES' if ang else 'no'}")
         img_data, mime = generate_image(client, image, prompt, s, expression, face_placement)
         if img_data:
             b64 = base64.b64encode(img_data).decode("utf-8")
