@@ -7,7 +7,8 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
+    <div class="particles"></div>
+    <div class="container stagger">
         <header>
             <div class="header-row">
                 <div>
@@ -119,9 +120,14 @@
 
         <!-- LOADING -->
         <div id="loading-section" class="hidden">
-            <div class="loader"></div>
-            <p id="loading-text">Analyzing machine...</p>
-            <p class="small" id="loading-sub">Phase 1: AI vision analysis (30-60s)</p>
+            <div class="loader-gear">⚙️</div>
+            <div class="loader-container">
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+                <div class="loader-dot"></div>
+            </div>
+            <p id="loading-text">Analyzing machine anatomy...</p>
+            <p class="small" id="loading-sub">This takes 30-60 seconds</p>
         </div>
 
         <!-- MACHINE INFO (shown after first analysis) -->

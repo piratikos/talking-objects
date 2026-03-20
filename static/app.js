@@ -1,38 +1,72 @@
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('file-input');
-const previewContainer = document.getElementById('preview-container');
-const previewImage = document.getElementById('preview-image');
-const generateBtn = document.getElementById('generate-btn');
-const settingsPanel = document.getElementById('settings-panel');
-const uploadSection = document.getElementById('upload-section');
-const loadingSection = document.getElementById('loading-section');
-const infoSection = document.getElementById('info-section');
-const gallerySection = document.getElementById('gallery-section');
-const promptsSection = document.getElementById('prompts-section');
-const regenSection = document.getElementById('regen-section');
-const errorSection = document.getElementById('error-section');
-const galleryGrid = document.getElementById('gallery-grid');
+// ── Particles ──────────────────────────────────
+function initParticles() {
+    const container = document.querySelector('.particles');
+    if (!container) return;
+    for (let i = 0; i < 25; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = 2 + Math.random() * 4;
+        const opacity = 0.1 + Math.random() * 0.25;
+        const duration = 8 + Math.random() * 14;
+        const delay = Math.random() * duration;
+        const left = Math.random() * 100;
+        p.style.cssText = `
+            width:${size}px; height:${size}px;
+            left:${left}%; bottom:-10px;
+            --p-opacity:${opacity};
+            animation-duration:${duration}s;
+            animation-delay:-${delay}s;
+        `;
+        container.appendChild(p);
+    }
+}
+
+// ── Elements ───────────────────────────────────
+const $ = id => document.getElementById(id);
+const dropZone = $('drop-zone');
+const fileInput = $('file-input');
+const previewContainer = $('preview-container');
+const previewImage = $('preview-image');
+const generateBtn = $('generate-btn');
+const settingsPanel = $('settings-panel');
+const uploadSection = $('upload-section');
+const loadingSection = $('loading-section');
+const infoSection = $('info-section');
+const gallerySection = $('gallery-section');
+const promptsSection = $('prompts-section');
+const regenSection = $('regen-section');
+const errorSection = $('error-section');
+const galleryGrid = $('gallery-grid');
 
 let selectedFile = null;
-let hasAnalysis = false;
-let galleryImages = []; // {label, dataUrl, jobId}
+let galleryImages = [];
+const loadingMessages = [
+    'Analyzing machine anatomy...',
+    'Identifying face placement...',
+    'Designing character personality...',
+    'Generating images...',
+    'Adding final touches...',
+    'Almost there...'
+];
+let loadingMsgIndex = 0;
+let loadingInterval = null;
 
-// === FILE HANDLING ===
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', e => {
-    if (e.target.files.length > 0) handleFile(e.target.files[0]);
-});
+// ── File handling ──────────────────────────────
+if (dropZone) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault(); dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+}
 
 function handleFile(file) {
-    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
-        alert('Only JPG, PNG, WEBP accepted'); return;
-    }
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('Only JPG, PNG, WEBP'); return; }
     if (file.size > 20*1024*1024) { alert('Max 20MB'); return; }
     selectedFile = file;
     const reader = new FileReader();
@@ -46,95 +80,119 @@ function handleFile(file) {
     reader.readAsDataURL(file);
 }
 
-document.getElementById('clear-btn').addEventListener('click', () => {
-    selectedFile = null;
-    previewContainer.classList.add('hidden');
-    dropZone.classList.remove('hidden');
+if ($('clear-btn')) {
+    $('clear-btn').addEventListener('click', () => {
+        selectedFile = null;
+        previewContainer.classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        settingsPanel.classList.add('hidden');
+        generateBtn.disabled = true;
+        fileInput.value = '';
+    });
+}
+
+// ── Generate ───────────────────────────────────
+if (generateBtn) {
+    generateBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        const fd = new FormData();
+        fd.append('image', selectedFile);
+        ['style-select','expression-select','body-select','bg-select','angle-select','gen-select'].forEach(id => {
+            const el = $(id);
+            if (el) fd.append(el.id.replace('-select','').replace('bg','background').replace('angle','camera_angle').replace('gen','generate_images'), el.value);
+        });
+        // Fix param names
+        const style = $('style-select')?.value || 'pixar';
+        const expr = $('expression-select')?.value || 'happy';
+        const body = $('body-select')?.value || 'face_only';
+        const bg = $('bg-select')?.value || 'original';
+        const angle = $('angle-select')?.value || 'original';
+        const gen = $('gen-select')?.value || 'true';
+        const personality = $('personality-input')?.value?.trim() || '';
+        const customBg = $('custom-bg-input')?.value?.trim() || '';
+
+        const fd2 = new FormData();
+        fd2.append('image', selectedFile);
+        fd2.append('style', style);
+        fd2.append('expression', expr);
+        fd2.append('body_style', body);
+        fd2.append('background', bg);
+        fd2.append('camera_angle', angle);
+        fd2.append('custom_bg', customBg);
+        fd2.append('generate_images', gen);
+        if (personality) fd2.append('personality', personality);
+
+        showLoading();
+        try {
+            const res = await fetch('/upload', { method: 'POST', body: fd2 });
+            const data = await res.json();
+            stopLoading();
+            if (data.error) { showError(data.error); return; }
+            showMachineInfo(data);
+            addToGallery(data.generated_images || {});
+            showPrompts(data.prompts || {});
+            showResults();
+        } catch (err) {
+            stopLoading();
+            showError('Network error: ' + err.message);
+        }
+    });
+}
+
+// ── Regenerate ─────────────────────────────────
+if ($('regen-btn')) {
+    $('regen-btn').addEventListener('click', async () => {
+        const btn = $('regen-btn');
+        const fd = new FormData();
+        fd.append('style', $('regen-style')?.value || 'pixar');
+        fd.append('expression', $('regen-expression')?.value || 'happy');
+        fd.append('body_style', $('regen-body')?.value || 'face_only');
+        fd.append('background', $('regen-bg')?.value || 'original');
+        fd.append('camera_angle', $('regen-angle')?.value || 'original');
+        fd.append('custom_bg', $('regen-custom-bg')?.value || '');
+
+        btn.textContent = 'Generating...';
+        btn.classList.add('loading');
+        try {
+            const res = await fetch('/regenerate', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.error) { showError(data.error); }
+            else { addToGallery(data.generated_images || {}); }
+        } catch (err) { showError(err.message); }
+        btn.textContent = 'Regenerate';
+        btn.classList.remove('loading');
+    });
+}
+
+if ($('new-photo-btn')) $('new-photo-btn').addEventListener('click', resetAll);
+
+// ── Loading ────────────────────────────────────
+function showLoading() {
+    hideAll();
+    loadingSection.classList.remove('hidden');
+    uploadSection.classList.remove('hidden');
     settingsPanel.classList.add('hidden');
-    generateBtn.disabled = true;
-    fileInput.value = '';
-});
+    loadingMsgIndex = 0;
+    $('loading-text').textContent = loadingMessages[0];
+    loadingInterval = setInterval(() => {
+        loadingMsgIndex = (loadingMsgIndex + 1) % loadingMessages.length;
+        $('loading-text').textContent = loadingMessages[loadingMsgIndex];
+    }, 4000);
+}
 
-// === GENERATE (first upload) ===
-generateBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
+function stopLoading() {
+    if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
+}
 
-    const formData = new FormData();
-    formData.append('image', selectedFile);
-    formData.append('style', document.getElementById('style-select').value);
-    formData.append('expression', document.getElementById('expression-select').value);
-    formData.append('body_style', document.getElementById('body-select').value);
-    formData.append('background', document.getElementById('bg-select').value);
-    formData.append('camera_angle', document.getElementById('angle-select').value);
-    formData.append('custom_bg', document.getElementById('custom-bg-input').value.trim());
-    formData.append('generate_images', document.getElementById('gen-select').value);
-    const personality = document.getElementById('personality-input').value.trim();
-    if (personality) formData.append('personality', personality);
-
-    showLoading('Analyzing machine...', 'Phase 1: Gemini 2.5 Pro analysis (30-60s)');
-
-    try {
-        const res = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.error) { showError(data.error); return; }
-
-        hasAnalysis = true;
-        showMachineInfo(data);
-        addToGallery(data.generated_images || {});
-        showPrompts(data.prompts || {});
-        showResults();
-    } catch (err) {
-        showError('Network error: ' + err.message);
-    }
-});
-
-// === REGENERATE ===
-document.getElementById('regen-btn').addEventListener('click', async () => {
-    const formData = new FormData();
-    formData.append('style', document.getElementById('regen-style').value);
-    formData.append('expression', document.getElementById('regen-expression').value);
-    formData.append('body_style', document.getElementById('regen-body').value);
-    formData.append('background', document.getElementById('regen-bg').value);
-    formData.append('camera_angle', document.getElementById('regen-angle').value);
-    formData.append('custom_bg', (document.getElementById('regen-custom-bg') || {}).value || '');
-
-    const btn = document.getElementById('regen-btn');
-    btn.textContent = 'Generating...';
-    btn.classList.add('loading');
-
-    try {
-        const res = await fetch('/regenerate', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.error) { showError(data.error); btn.textContent = 'Regenerate'; btn.classList.remove('loading'); return; }
-
-        addToGallery(data.generated_images || {});
-        btn.textContent = 'Regenerate';
-        btn.classList.remove('loading');
-    } catch (err) {
-        showError('Network error: ' + err.message);
-        btn.textContent = 'Regenerate';
-        btn.classList.remove('loading');
-    }
-});
-
-document.getElementById('new-photo-btn').addEventListener('click', resetAll);
-
-// Custom background toggle
-document.getElementById('bg-select').addEventListener('change', e => {
-    document.getElementById('custom-bg-group').classList.toggle('hidden', e.target.value !== 'custom');
-});
-document.getElementById('regen-bg').addEventListener('change', e => {
-    document.getElementById('regen-custom-bg-group').classList.toggle('hidden', e.target.value !== 'custom');
-});
-
-// === GALLERY ===
+// ── Gallery ────────────────────────────────────
 function addToGallery(images) {
+    let delay = 0;
     for (const [key, img] of Object.entries(images)) {
         const dataUrl = `data:${img.mime};base64,${img.data}`;
-        galleryImages.push({ label: key.replace(/_/g, ' '), dataUrl });
-
+        galleryImages.push({ label: key, dataUrl });
         const card = document.createElement('div');
         card.className = 'image-card';
+        card.style.animationDelay = `${delay}ms`;
         card.innerHTML = `
             <img src="${dataUrl}" alt="${key}" onclick="openLightbox('${dataUrl}')">
             <div class="card-footer">
@@ -142,62 +200,56 @@ function addToGallery(images) {
                 <a href="${dataUrl}" download="${key}.png" class="btn-copy">Download</a>
             </div>
         `;
-        galleryGrid.appendChild(card);
+        galleryGrid.prepend(card);
+        delay += 150;
     }
-
-    if (galleryImages.length > 0) {
-        gallerySection.classList.remove('hidden');
-    }
+    if (galleryImages.length) gallerySection.classList.remove('hidden');
 }
 
-document.getElementById('clear-gallery-btn').addEventListener('click', () => {
-    galleryImages = [];
-    galleryGrid.innerHTML = '';
-    gallerySection.classList.add('hidden');
-});
+if ($('clear-gallery-btn')) {
+    $('clear-gallery-btn').addEventListener('click', () => {
+        galleryImages = []; galleryGrid.innerHTML = '';
+        gallerySection.classList.add('hidden');
+    });
+}
+if ($('download-all-btn')) {
+    $('download-all-btn').addEventListener('click', () => { window.location.href = '/download-all'; });
+}
 
-document.getElementById('download-all-btn').addEventListener('click', () => {
-    window.location.href = '/download-all';
-});
-
-// === LIGHTBOX ===
+// ── Lightbox ───────────────────────────────────
 function openLightbox(src) {
-    document.getElementById('lightbox-img').src = src;
-    document.getElementById('lightbox').classList.remove('hidden');
+    $('lightbox-img').src = src;
+    $('lightbox').classList.remove('hidden');
 }
-function closeLightbox() {
-    document.getElementById('lightbox').classList.add('hidden');
-}
+function closeLightbox() { $('lightbox').classList.add('hidden'); }
 
-// === MACHINE INFO ===
+// ── Machine Info ───────────────────────────────
 function showMachineInfo(data) {
-    document.getElementById('machine-type').textContent = data.machine_type || 'Machine';
-    document.getElementById('personality-text').textContent = data.personality || '';
+    $('machine-type').textContent = data.machine_type || 'Machine';
+    $('personality-text').textContent = data.personality || '';
     const cp = data.catchphrase || '';
-    const cpEl = document.getElementById('catchphrase-text');
+    const cpEl = $('catchphrase-text');
     cpEl.textContent = cp ? `"${cp}"` : '';
     cpEl.classList.toggle('hidden', !cp);
-
     const face = data.face_placement || {};
-    document.getElementById('eyes-info').textContent = face.eyes || 'N/A';
-    document.getElementById('mouth-info').textContent = face.mouth || 'N/A';
-
+    $('eyes-info').textContent = face.eyes || 'N/A';
+    $('mouth-info').textContent = face.mouth || 'N/A';
     infoSection.classList.remove('hidden');
 }
 
-// === PROMPTS ===
+// ── Prompts ────────────────────────────────────
 function showPrompts(prompts) {
-    const list = document.getElementById('prompts-list');
+    const list = $('prompts-list');
     list.innerHTML = '';
     for (const [style, expressions] of Object.entries(prompts)) {
         for (const [expr, text] of Object.entries(expressions)) {
-            const id = `prompt-${style}-${expr}-${Date.now()}`;
+            const id = `p-${style}-${expr}-${Date.now()}`;
             const card = document.createElement('div');
             card.className = 'prompt-card';
             card.innerHTML = `
                 <div class="prompt-title" onclick="togglePrompt('${id}')">${style} / ${expr} ▾</div>
                 <pre id="${id}">${escapeHtml(text)}</pre>
-                <button class="btn-copy" onclick="copyText('${id}', this)">Copy</button>
+                <button class="btn-copy" onclick="copyText('${id}',this)">Copy</button>
             `;
             list.appendChild(card);
         }
@@ -205,11 +257,11 @@ function showPrompts(prompts) {
     promptsSection.classList.remove('hidden');
 }
 
-function togglePrompt(id) { document.getElementById(id).classList.toggle('expanded'); }
-function toggleSection(id) { document.getElementById(id).classList.toggle('collapsed'); }
+function togglePrompt(id) { $(id)?.classList.toggle('expanded'); }
+function toggleSection(id) { $(id)?.classList.toggle('collapsed'); }
 
 function copyText(id, btn) {
-    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+    navigator.clipboard.writeText($(id).textContent).then(() => {
         if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied');
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         }
@@ -218,49 +270,43 @@ function copyText(id, btn) {
 
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
-// === UI STATE ===
-function showLoading(text, sub) {
-    hideAll();
-    document.getElementById('loading-text').textContent = text;
-    document.getElementById('loading-sub').textContent = sub;
-    loadingSection.classList.remove('hidden');
-    // Keep preview visible
-    uploadSection.classList.remove('hidden');
-    settingsPanel.classList.add('hidden');
+// ── UI State ───────────────────────────────────
+function hideAll() {
+    [loadingSection, errorSection].forEach(s => s?.classList.add('hidden'));
 }
 
 function showResults() {
     loadingSection.classList.add('hidden');
     settingsPanel.classList.add('hidden');
     regenSection.classList.remove('hidden');
-    // Keep upload section with preview
     uploadSection.classList.remove('hidden');
 }
 
 function showError(msg) {
     loadingSection.classList.add('hidden');
-    document.getElementById('error-text').textContent = msg;
+    $('error-text').textContent = msg;
     errorSection.classList.remove('hidden');
 }
 
-function hideAll() {
-    loadingSection.classList.add('hidden');
-    errorSection.classList.add('hidden');
+function resetAll() {
+    selectedFile = null; galleryImages = [];
+    galleryGrid.innerHTML = '';
+    previewContainer?.classList.add('hidden');
+    dropZone?.classList.remove('hidden');
+    if (generateBtn) generateBtn.disabled = true;
+    if (fileInput) fileInput.value = '';
+    [settingsPanel, infoSection, gallerySection, promptsSection,
+     regenSection, errorSection, loadingSection].forEach(s => s?.classList.add('hidden'));
 }
 
-function resetAll() {
-    selectedFile = null; hasAnalysis = false;
-    galleryImages = [];
-    galleryGrid.innerHTML = '';
-    previewContainer.classList.add('hidden');
-    dropZone.classList.remove('hidden');
-    generateBtn.disabled = true;
-    fileInput.value = '';
-    settingsPanel.classList.add('hidden');
-    infoSection.classList.add('hidden');
-    gallerySection.classList.add('hidden');
-    promptsSection.classList.add('hidden');
-    regenSection.classList.add('hidden');
-    errorSection.classList.add('hidden');
-    loadingSection.classList.add('hidden');
-}
+// ── Custom BG toggle ───────────────────────────
+['bg-select','regen-bg'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('change', e => {
+        const target = id === 'bg-select' ? 'custom-bg-group' : 'regen-custom-bg-group';
+        $(target)?.classList.toggle('hidden', e.target.value !== 'custom');
+    });
+});
+
+// ── Init ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', initParticles);
