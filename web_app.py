@@ -43,6 +43,86 @@ _rate_lock = Lock()
 _rate_log = []
 RATE_LIMIT = 10
 
+BACKGROUNDS = {
+    "original": {},
+    "toolgini_workshop": {
+        "cartoon": "Colorful cartoon workshop background with wooden shelves full of tools, warm yellow lighting, wood shavings on the floor, TOOLGINI sign on the wall, cartoon style matching the character",
+        "pixar": "Pixar-style 3D rendered professional dark workshop with wooden workbench, pegboard wall with hanging tools, warm dramatic desk lamp lighting, floating sawdust particles, TOOLGINI wooden sign on brick wall, cinematic depth of field",
+        "realistic": "Professional woodworking workshop photograph, dark moody lighting with warm tones, tools on pegboard wall, sawdust on surfaces, industrial desk lamp, shallow depth of field background blur",
+    },
+    "modern_showroom": {
+        "cartoon": "Clean white showroom background with spotlights, cartoon style, simple and clean",
+        "pixar": "Sleek modern product showroom with soft gradient lighting, polished concrete floor, subtle reflections, professional product photography style, 3D rendered",
+        "realistic": "Professional product photography on clean white/grey background, studio lighting with softboxes, subtle shadow, commercial catalog style",
+    },
+    "trade_show": {
+        "cartoon": "Cartoon trade show booth with colorful banners, exhibition hall, other cartoon machines in background",
+        "pixar": "3D rendered trade show exhibition booth with professional banners, bright exhibition hall lighting, other machines visible in background, TOOLGINI branding on booth",
+        "realistic": "Real woodworking trade show exhibition floor, professional booth setup, bright overhead exhibition lighting, visitors in background blurred, commercial photography",
+    },
+    "carpenters_dream": {
+        "cartoon": "Cozy cartoon carpenter workshop with wooden everything, fireplace glow, vintage tools, warm and inviting",
+        "pixar": "Beautiful Pixar-style old carpenter workshop, golden afternoon light streaming through dusty windows, wooden beams overhead, vintage hand tools on walls, rich warm color palette, nostalgic atmosphere",
+        "realistic": "Traditional carpenter's workshop, golden hour sunlight through windows, dust particles in light beams, worn wooden workbench, patina on tools, warm nostalgic photography",
+    },
+    "outdoor": {
+        "cartoon": "Cartoon outdoor scene, green grass, blue sky, trees, the machine stands proudly outside",
+        "pixar": "Pixar-style outdoor mountain meadow with wildflowers, golden hour sunlight, dramatic clouds, the machine stands heroically, cinematic wide shot",
+        "realistic": "Outdoor setting with natural light, green landscape background, professional outdoor product photography",
+    },
+    "studio": {
+        "cartoon": "Solid dark background with dramatic cartoon spotlights, clean minimal studio",
+        "pixar": "Solid dark grey background with dramatic rim lighting highlighting the machine edges, professional 3D studio render, volumetric light, clean and minimal",
+        "realistic": "Solid dark grey (#1a1a1a) background with dramatic rim lighting highlighting the machine edges, professional studio product photography, clean and minimal",
+    },
+}
+
+CAMERA_ANGLES = {
+    "original": {},
+    "front_facing": {
+        "cartoon": "Front-facing view, the character looks directly at the viewer, cartoon composition",
+        "pixar": "Cinematic front-facing hero shot, the character looks directly into camera with confident expression, shallow depth of field, Pixar movie poster composition",
+        "realistic": "Straight-on frontal product photograph, centered, professional composition",
+    },
+    "three_quarter": {
+        "cartoon": "Slight 3/4 angle view showing depth, cartoon perspective",
+        "pixar": "Cinematic 3/4 angle shot showing both the front and side of the character, dramatic lighting, Pixar movie still composition",
+        "realistic": "Professional 3/4 angle product photography, showing depth and form, studio lighting",
+    },
+    "low_angle": {
+        "cartoon": "Low angle looking up at the character, making it look big and powerful, cartoon hero pose",
+        "pixar": "Dramatic low-angle cinematic shot looking up at the character, heroic pose, dramatic rim lighting from behind, Pixar movie poster style",
+        "realistic": "Low angle product photography looking up, making the machine appear imposing and powerful",
+    },
+    "eye_level": {
+        "cartoon": "Eye level straight-on view, face to face with the character, friendly cartoon angle",
+        "pixar": "Eye-level medium shot, face to face with the character, intimate Pixar close-up, bokeh background",
+        "realistic": "Eye level product photograph, straight on, as if looking at it face to face",
+    },
+    "isometric": {
+        "cartoon": "Isometric top-down 3/4 angle, clean cartoon product illustration",
+        "pixar": "Isometric 3/4 top-down angle, clean 3D product visualization, even lighting, Pixar quality render",
+        "realistic": "Isometric product shot from above, clean professional catalog photography",
+    },
+}
+
+
+def get_background_prompt(bg_key, style, custom_text=""):
+    if bg_key == "original" or bg_key not in BACKGROUNDS:
+        if bg_key == "custom" and custom_text:
+            return f"BACKGROUND CHANGE: Remove the original background and replace with: {custom_text}"
+        return ""
+    bg = BACKGROUNDS[bg_key].get(style, BACKGROUNDS[bg_key].get("pixar", ""))
+    return f"BACKGROUND CHANGE: Remove the original background and replace with: {bg}"
+
+
+def get_angle_prompt(angle_key, style):
+    if angle_key == "original" or angle_key not in CAMERA_ANGLES:
+        return ""
+    angle = CAMERA_ANGLES[angle_key].get(style, CAMERA_ANGLES[angle_key].get("pixar", ""))
+    return f"Camera angle: {angle}"
+
+
 BODY_PROMPTS = {
     "face_only": "",
     "face_arms": (
@@ -98,8 +178,9 @@ def prepare_image(src):
     return img
 
 
-def do_generate(image, style, expression, body_style, face_placement):
-    """Generate image(s) with optional body modifications."""
+def do_generate(image, style, expression, body_style, face_placement,
+                background="original", camera_angle="original", custom_bg=""):
+    """Generate image(s) with optional body/background/angle modifications."""
     client = get_client()
     gen_styles = STYLES if style == "all" else [style]
     body_extra = BODY_PROMPTS.get(body_style, "")
@@ -109,6 +190,12 @@ def do_generate(image, style, expression, body_style, face_placement):
         prompt = _short_prompt(s, expression, face_placement)
         if body_extra:
             prompt += " " + body_extra
+        bg_prompt = get_background_prompt(background, s, custom_bg)
+        if bg_prompt:
+            prompt += " " + bg_prompt
+        angle_prompt = get_angle_prompt(camera_angle, s)
+        if angle_prompt:
+            prompt += " " + angle_prompt
 
         img_data, mime = generate_image(client, image, prompt, s, expression, face_placement)
         if img_data:
@@ -139,6 +226,9 @@ def upload():
     expression = request.form.get('expression', 'happy')
     personality = request.form.get('personality', '') or None
     body_style = request.form.get('body_style', 'face_only')
+    background = request.form.get('background', 'original')
+    camera_angle = request.form.get('camera_angle', 'original')
+    custom_bg = request.form.get('custom_bg', '')
     gen_images = request.form.get('generate_images', 'true') == 'true'
 
     # Save upload persistently for regeneration
@@ -181,7 +271,8 @@ def upload():
         # Phase 2: Generate images
         if gen_images:
             gen_results = do_generate(image, style, expression, body_style,
-                                      data.get("face_placement", {}))
+                                      data.get("face_placement", {}),
+                                      background, camera_angle, custom_bg)
             result["generated_images"] = gen_results
 
             # Save to disk
@@ -216,12 +307,16 @@ def regenerate():
     style = request.form.get('style', 'pixar')
     expression = request.form.get('expression', 'happy')
     body_style = request.form.get('body_style', 'face_only')
+    background = request.form.get('background', 'original')
+    camera_angle = request.form.get('camera_angle', 'original')
+    custom_bg = request.form.get('custom_bg', '')
 
     try:
         image = prepare_image(upload_path)
         face = (analysis or {}).get("face_placement", {})
 
-        gen_results = do_generate(image, style, expression, body_style, face)
+        gen_results = do_generate(image, style, expression, body_style, face,
+                                  background, camera_angle, custom_bg)
 
         # Save
         session_id = session.get('session_id', 'unknown')
@@ -259,6 +354,9 @@ def api_generate():
     expression = request.form.get('expression', 'neutral')
     personality = request.form.get('personality', None)
     body_style = request.form.get('body_style', 'face_only')
+    background = request.form.get('background', 'original')
+    camera_angle = request.form.get('camera_angle', 'original')
+    custom_bg = request.form.get('custom_bg', '')
     gen_images = request.form.get('generate_images', 'true').lower() != 'false'
 
     try:
@@ -281,7 +379,8 @@ def api_generate():
 
         if gen_images:
             result["generated_images"] = do_generate(
-                image, style, expression, body_style, data.get("face_placement", {}))
+                image, style, expression, body_style, data.get("face_placement", {}),
+                background, camera_angle, custom_bg)
         else:
             result["generated_images"] = {}
 

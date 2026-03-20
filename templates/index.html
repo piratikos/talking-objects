@@ -58,15 +58,43 @@
                     </select>
                 </div>
                 <div class="option-group">
+                    <label>Background</label>
+                    <select id="bg-select">
+                        <option value="original">Original photo</option>
+                        <option value="toolgini_workshop">Toolgini Workshop</option>
+                        <option value="modern_showroom">Modern Showroom</option>
+                        <option value="trade_show">Trade Show</option>
+                        <option value="carpenters_dream">Carpenter's Dream</option>
+                        <option value="outdoor">Outdoor / Nature</option>
+                        <option value="studio">Studio (solid dark)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Camera Angle</label>
+                    <select id="angle-select">
+                        <option value="original">Original angle</option>
+                        <option value="front_facing">Front facing</option>
+                        <option value="three_quarter">3/4 angle</option>
+                        <option value="low_angle">Low angle (heroic)</option>
+                        <option value="eye_level">Eye level</option>
+                        <option value="isometric">Isometric</option>
+                    </select>
+                </div>
+                <div id="custom-bg-group" class="option-group full-width hidden">
+                    <label>Custom background</label>
+                    <input type="text" id="custom-bg-input" placeholder="Describe your background...">
+                </div>
+                <div class="option-group">
                     <label>Generate</label>
                     <select id="gen-select">
                         <option value="true" selected>Images (~$0.04/ea)</option>
                         <option value="false">Prompts only (~$0.003)</option>
                     </select>
                 </div>
-                <div class="option-group full-width">
+                <div class="option-group">
                     <label>Personality (optional)</label>
-                    <input type="text" id="personality-input" placeholder="e.g. angry Greek comedian">
+                    <input type="text" id="personality-input" placeholder="e.g. angry comedian">
                 </div>
             </div>
             <button id="generate-btn" class="btn-primary" disabled>Generate!</button>
@@ -140,6 +168,33 @@
                         <option value="face_arms_legs">Face + Arms & Legs</option>
                         <option value="face_wheels">Face + Wheels</option>
                     </select>
+                </div>
+                <div class="option-group">
+                    <label>Background</label>
+                    <select id="regen-bg">
+                        <option value="original">Original photo</option>
+                        <option value="toolgini_workshop">Toolgini Workshop</option>
+                        <option value="modern_showroom">Modern Showroom</option>
+                        <option value="trade_show">Trade Show</option>
+                        <option value="carpenters_dream">Carpenter's Dream</option>
+                        <option value="outdoor">Outdoor / Nature</option>
+                        <option value="studio">Studio (solid dark)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Camera Angle</label>
+                    <select id="regen-angle">
+                        <option value="original">Original angle</option>
+                        <option value="front_facing">Front facing</option>
+                        <option value="three_quarter">3/4 angle</option>
+                        <option value="low_angle">Low angle (heroic)</option>
+                        <option value="eye_level">Eye level</option>
+                        <option value="isometric">Isometric</option>
+                    </select>
+                </div>
+                <div id="regen-custom-bg-group" class="option-group full-width hidden">
+                    <input type="text" id="regen-custom-bg" placeholder="Custom background...">
                 </div>
             </div>
             <button id="regen-btn" class="btn-primary">Regenerate</button>

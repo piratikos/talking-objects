@@ -64,6 +64,9 @@ generateBtn.addEventListener('click', async () => {
     formData.append('style', document.getElementById('style-select').value);
     formData.append('expression', document.getElementById('expression-select').value);
     formData.append('body_style', document.getElementById('body-select').value);
+    formData.append('background', document.getElementById('bg-select').value);
+    formData.append('camera_angle', document.getElementById('angle-select').value);
+    formData.append('custom_bg', document.getElementById('custom-bg-input').value.trim());
     formData.append('generate_images', document.getElementById('gen-select').value);
     const personality = document.getElementById('personality-input').value.trim();
     if (personality) formData.append('personality', personality);
@@ -91,6 +94,9 @@ document.getElementById('regen-btn').addEventListener('click', async () => {
     formData.append('style', document.getElementById('regen-style').value);
     formData.append('expression', document.getElementById('regen-expression').value);
     formData.append('body_style', document.getElementById('regen-body').value);
+    formData.append('background', document.getElementById('regen-bg').value);
+    formData.append('camera_angle', document.getElementById('regen-angle').value);
+    formData.append('custom_bg', (document.getElementById('regen-custom-bg') || {}).value || '');
 
     const btn = document.getElementById('regen-btn');
     btn.textContent = 'Generating...';
@@ -112,6 +118,14 @@ document.getElementById('regen-btn').addEventListener('click', async () => {
 });
 
 document.getElementById('new-photo-btn').addEventListener('click', resetAll);
+
+// Custom background toggle
+document.getElementById('bg-select').addEventListener('change', e => {
+    document.getElementById('custom-bg-group').classList.toggle('hidden', e.target.value !== 'custom');
+});
+document.getElementById('regen-bg').addEventListener('change', e => {
+    document.getElementById('regen-custom-bg-group').classList.toggle('hidden', e.target.value !== 'custom');
+});
 
 // === GALLERY ===
 function addToGallery(images) {
