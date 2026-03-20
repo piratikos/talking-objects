@@ -3,43 +3,44 @@ const fileInput = document.getElementById('file-input');
 const previewContainer = document.getElementById('preview-container');
 const previewImage = document.getElementById('preview-image');
 const generateBtn = document.getElementById('generate-btn');
+const settingsPanel = document.getElementById('settings-panel');
 const uploadSection = document.getElementById('upload-section');
 const loadingSection = document.getElementById('loading-section');
-const resultsSection = document.getElementById('results-section');
+const infoSection = document.getElementById('info-section');
+const gallerySection = document.getElementById('gallery-section');
+const promptsSection = document.getElementById('prompts-section');
+const regenSection = document.getElementById('regen-section');
 const errorSection = document.getElementById('error-section');
+const galleryGrid = document.getElementById('gallery-grid');
 
 let selectedFile = null;
-let currentJobId = null;
+let hasAnalysis = false;
+let galleryImages = []; // {label, dataUrl, jobId}
 
-// Drag and drop
+// === FILE HANDLING ===
 dropZone.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length > 0) handleFile(files[0]);
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener('change', e => {
     if (e.target.files.length > 0) handleFile(e.target.files[0]);
 });
 
 function handleFile(file) {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-        alert('Only JPG, PNG, WEBP files accepted');
-        return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
+        alert('Only JPG, PNG, WEBP accepted'); return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-        alert('File too large (max 20MB)');
-        return;
-    }
+    if (file.size > 20*1024*1024) { alert('Max 20MB'); return; }
     selectedFile = file;
     const reader = new FileReader();
     reader.onload = e => {
         previewImage.src = e.target.result;
         previewContainer.classList.remove('hidden');
         dropZone.classList.add('hidden');
+        settingsPanel.classList.remove('hidden');
         generateBtn.disabled = false;
     };
     reader.readAsDataURL(file);
@@ -49,11 +50,12 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     selectedFile = null;
     previewContainer.classList.add('hidden');
     dropZone.classList.remove('hidden');
+    settingsPanel.classList.add('hidden');
     generateBtn.disabled = true;
     fileInput.value = '';
 });
 
-// Generate
+// === GENERATE (first upload) ===
 generateBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
 
@@ -61,154 +63,190 @@ generateBtn.addEventListener('click', async () => {
     formData.append('image', selectedFile);
     formData.append('style', document.getElementById('style-select').value);
     formData.append('expression', document.getElementById('expression-select').value);
+    formData.append('body_style', document.getElementById('body-select').value);
     formData.append('generate_images', document.getElementById('gen-select').value);
     const personality = document.getElementById('personality-input').value.trim();
     if (personality) formData.append('personality', personality);
 
-    showSection('loading');
-    updateLoading('Analyzing machine...', 'Phase 1: Gemini 2.5 Pro Vision analysis (30-60s)');
+    showLoading('Analyzing machine...', 'Phase 1: Gemini 2.5 Pro analysis (30-60s)');
 
     try {
-        const response = await fetch('/upload', { method: 'POST', body: formData });
-        const data = await response.json();
+        const res = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) { showError(data.error); return; }
 
-        if (data.error) {
-            showError(data.error);
-            return;
-        }
-
-        currentJobId = data.job_id;
-        showResults(data);
+        hasAnalysis = true;
+        showMachineInfo(data);
+        addToGallery(data.generated_images || {});
+        showPrompts(data.prompts || {});
+        showResults();
     } catch (err) {
         showError('Network error: ' + err.message);
     }
 });
 
-function showSection(name) {
-    uploadSection.classList.add('hidden');
-    loadingSection.classList.add('hidden');
-    resultsSection.classList.add('hidden');
-    errorSection.classList.add('hidden');
-    document.getElementById(name + '-section').classList.remove('hidden');
+// === REGENERATE ===
+document.getElementById('regen-btn').addEventListener('click', async () => {
+    const formData = new FormData();
+    formData.append('style', document.getElementById('regen-style').value);
+    formData.append('expression', document.getElementById('regen-expression').value);
+    formData.append('body_style', document.getElementById('regen-body').value);
+
+    const btn = document.getElementById('regen-btn');
+    btn.textContent = 'Generating...';
+    btn.classList.add('loading');
+
+    try {
+        const res = await fetch('/regenerate', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.error) { showError(data.error); btn.textContent = 'Regenerate'; btn.classList.remove('loading'); return; }
+
+        addToGallery(data.generated_images || {});
+        btn.textContent = 'Regenerate';
+        btn.classList.remove('loading');
+    } catch (err) {
+        showError('Network error: ' + err.message);
+        btn.textContent = 'Regenerate';
+        btn.classList.remove('loading');
+    }
+});
+
+document.getElementById('new-photo-btn').addEventListener('click', resetAll);
+
+// === GALLERY ===
+function addToGallery(images) {
+    for (const [key, img] of Object.entries(images)) {
+        const dataUrl = `data:${img.mime};base64,${img.data}`;
+        galleryImages.push({ label: key.replace(/_/g, ' '), dataUrl });
+
+        const card = document.createElement('div');
+        card.className = 'image-card';
+        card.innerHTML = `
+            <img src="${dataUrl}" alt="${key}" onclick="openLightbox('${dataUrl}')">
+            <div class="card-footer">
+                <span class="label">${key.replace(/_/g, ' ')}</span>
+                <a href="${dataUrl}" download="${key}.png" class="btn-copy">Download</a>
+            </div>
+        `;
+        galleryGrid.appendChild(card);
+    }
+
+    if (galleryImages.length > 0) {
+        gallerySection.classList.remove('hidden');
+    }
 }
 
-function updateLoading(text, sub) {
-    document.getElementById('loading-text').textContent = text;
-    document.getElementById('loading-sub').textContent = sub;
+document.getElementById('clear-gallery-btn').addEventListener('click', () => {
+    galleryImages = [];
+    galleryGrid.innerHTML = '';
+    gallerySection.classList.add('hidden');
+});
+
+document.getElementById('download-all-btn').addEventListener('click', () => {
+    window.location.href = '/download-all';
+});
+
+// === LIGHTBOX ===
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.remove('hidden');
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.add('hidden');
 }
 
-function showError(msg) {
-    document.getElementById('error-text').textContent = msg;
-    showSection('error');
-}
-
-function showResults(data) {
-    // Machine info
+// === MACHINE INFO ===
+function showMachineInfo(data) {
     document.getElementById('machine-type').textContent = data.machine_type || 'Machine';
     document.getElementById('personality-text').textContent = data.personality || '';
-    const catchphrase = data.catchphrase || '';
+    const cp = data.catchphrase || '';
     const cpEl = document.getElementById('catchphrase-text');
-    cpEl.textContent = catchphrase ? `"${catchphrase}"` : '';
-    cpEl.classList.toggle('hidden', !catchphrase);
+    cpEl.textContent = cp ? `"${cp}"` : '';
+    cpEl.classList.toggle('hidden', !cp);
 
-    // Face placement
     const face = data.face_placement || {};
     document.getElementById('eyes-info').textContent = face.eyes || 'N/A';
     document.getElementById('mouth-info').textContent = face.mouth || 'N/A';
 
-    // Generated images
-    const imagesGrid = document.getElementById('images-grid');
-    imagesGrid.innerHTML = '';
-    const genImages = data.generated_images || {};
-    const hasImages = Object.keys(genImages).length > 0;
+    infoSection.classList.remove('hidden');
+}
 
-    if (hasImages) {
-        imagesGrid.classList.remove('hidden');
-        for (const [key, img] of Object.entries(genImages)) {
-            const card = document.createElement('div');
-            card.className = 'image-card';
-            card.innerHTML = `
-                <img src="data:${img.mime};base64,${img.data}" alt="${key}">
-                <div class="label">${key.replace('_', ' ')}</div>
-                <a href="/download/${currentJobId}/${key}.png" class="btn-copy" download>Download</a>
-            `;
-            imagesGrid.appendChild(card);
-        }
-    } else {
-        imagesGrid.classList.add('hidden');
-    }
-
-    // Prompts
-    const promptsList = document.getElementById('prompts-list');
-    promptsList.innerHTML = '';
-    const prompts = data.prompts || {};
-
+// === PROMPTS ===
+function showPrompts(prompts) {
+    const list = document.getElementById('prompts-list');
+    list.innerHTML = '';
     for (const [style, expressions] of Object.entries(prompts)) {
         for (const [expr, text] of Object.entries(expressions)) {
-            const id = `prompt-${style}-${expr}`;
+            const id = `prompt-${style}-${expr}-${Date.now()}`;
             const card = document.createElement('div');
             card.className = 'prompt-card';
             card.innerHTML = `
                 <div class="prompt-title" onclick="togglePrompt('${id}')">${style} / ${expr} ▾</div>
                 <pre id="${id}">${escapeHtml(text)}</pre>
-                <button class="btn-copy" onclick="copyText('${id}')">Copy</button>
+                <button class="btn-copy" onclick="copyText('${id}', this)">Copy</button>
             `;
-            promptsList.appendChild(card);
+            list.appendChild(card);
         }
     }
-
-    // Animation
-    const animSection = document.getElementById('animation-section');
-    const animPrompt = data.animation_prompt || '';
-    if (animPrompt) {
-        document.getElementById('animation-prompt').textContent = animPrompt;
-        document.getElementById('animation-prompt').classList.add('expanded');
-        animSection.classList.remove('hidden');
-    } else {
-        animSection.classList.add('hidden');
-    }
-
-    // Download button
-    const dlBtn = document.getElementById('download-all-btn');
-    if (currentJobId) {
-        dlBtn.classList.remove('hidden');
-        dlBtn.onclick = () => window.location.href = `/download/${currentJobId}`;
-    }
-
-    showSection('results');
+    promptsSection.classList.remove('hidden');
 }
 
-function togglePrompt(id) {
-    document.getElementById(id).classList.toggle('expanded');
-}
+function togglePrompt(id) { document.getElementById(id).classList.toggle('expanded'); }
+function toggleSection(id) { document.getElementById(id).classList.toggle('collapsed'); }
 
-function copyText(id) {
-    const el = document.getElementById(id);
-    const text = el.textContent;
-    navigator.clipboard.writeText(text).then(() => {
-        const btn = el.nextElementSibling || el.parentElement.querySelector('.btn-copy');
-        if (btn) {
-            btn.textContent = 'Copied!';
-            btn.classList.add('copied');
+function copyText(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+        if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied');
             setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
         }
     });
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+// === UI STATE ===
+function showLoading(text, sub) {
+    hideAll();
+    document.getElementById('loading-text').textContent = text;
+    document.getElementById('loading-sub').textContent = sub;
+    loadingSection.classList.remove('hidden');
+    // Keep preview visible
+    uploadSection.classList.remove('hidden');
+    settingsPanel.classList.add('hidden');
 }
 
-function resetUI() {
-    selectedFile = null;
-    currentJobId = null;
+function showResults() {
+    loadingSection.classList.add('hidden');
+    settingsPanel.classList.add('hidden');
+    regenSection.classList.remove('hidden');
+    // Keep upload section with preview
+    uploadSection.classList.remove('hidden');
+}
+
+function showError(msg) {
+    loadingSection.classList.add('hidden');
+    document.getElementById('error-text').textContent = msg;
+    errorSection.classList.remove('hidden');
+}
+
+function hideAll() {
+    loadingSection.classList.add('hidden');
+    errorSection.classList.add('hidden');
+}
+
+function resetAll() {
+    selectedFile = null; hasAnalysis = false;
+    galleryImages = [];
+    galleryGrid.innerHTML = '';
     previewContainer.classList.add('hidden');
     dropZone.classList.remove('hidden');
     generateBtn.disabled = true;
     fileInput.value = '';
-    showSection('upload');
+    settingsPanel.classList.add('hidden');
+    infoSection.classList.add('hidden');
+    gallerySection.classList.add('hidden');
+    promptsSection.classList.add('hidden');
+    regenSection.classList.add('hidden');
+    errorSection.classList.add('hidden');
+    loadingSection.classList.add('hidden');
 }
-
-document.getElementById('try-again-btn').addEventListener('click', resetUI);

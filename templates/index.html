@@ -18,38 +18,50 @@
             <div id="drop-zone" class="drop-zone">
                 <div class="drop-icon">📷</div>
                 <p>Drag & drop a machine photo here</p>
-                <p class="small">or click to select</p>
+                <p class="small">or click to select — JPG, PNG, WEBP (max 20MB)</p>
                 <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.webp" hidden>
             </div>
             <div id="preview-container" class="hidden">
                 <img id="preview-image" alt="Preview">
-                <button id="clear-btn" class="btn-small">✕ Clear</button>
+                <button id="clear-btn" class="btn-icon" title="Clear">✕</button>
             </div>
+        </div>
 
+        <!-- SETTINGS PANEL (visible after upload) -->
+        <div id="settings-panel" class="hidden">
             <div class="options">
                 <div class="option-group">
                     <label>Style</label>
                     <select id="style-select">
-                        <option value="all" selected>All three</option>
+                        <option value="pixar" selected>Pixar 3D</option>
                         <option value="cartoon">Cartoon</option>
-                        <option value="pixar">Pixar 3D</option>
                         <option value="realistic">Realistic</option>
+                        <option value="all">All three</option>
                     </select>
                 </div>
                 <div class="option-group">
                     <label>Expression</label>
                     <select id="expression-select">
-                        <option value="happy">Happy</option>
+                        <option value="happy" selected>Happy</option>
                         <option value="neutral">Neutral</option>
                         <option value="serious">Serious</option>
                         <option value="surprised">Surprised</option>
                     </select>
                 </div>
                 <div class="option-group">
-                    <label>Generate images</label>
+                    <label>Body</label>
+                    <select id="body-select">
+                        <option value="face_only" selected>Face only</option>
+                        <option value="face_arms">Face + Arms</option>
+                        <option value="face_arms_legs">Face + Arms & Legs</option>
+                        <option value="face_wheels">Face + Wheels</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Generate</label>
                     <select id="gen-select">
-                        <option value="false" selected>Prompts only (~$0.003)</option>
-                        <option value="true">Prompts + Images (~$0.12)</option>
+                        <option value="true" selected>Images (~$0.04/ea)</option>
+                        <option value="false">Prompts only (~$0.003)</option>
                     </select>
                 </div>
                 <div class="option-group full-width">
@@ -57,52 +69,81 @@
                     <input type="text" id="personality-input" placeholder="e.g. angry Greek comedian">
                 </div>
             </div>
-
             <button id="generate-btn" class="btn-primary" disabled>Generate!</button>
         </div>
 
-        <!-- LOADING SECTION -->
+        <!-- LOADING -->
         <div id="loading-section" class="hidden">
             <div class="loader"></div>
             <p id="loading-text">Analyzing machine...</p>
-            <p class="small" id="loading-sub">This takes 30-60 seconds</p>
+            <p class="small" id="loading-sub">Phase 1: AI vision analysis (30-60s)</p>
         </div>
 
-        <!-- RESULTS SECTION -->
-        <div id="results-section" class="hidden">
+        <!-- MACHINE INFO (shown after first analysis) -->
+        <div id="info-section" class="hidden">
             <div class="result-header">
                 <h2 id="machine-type"></h2>
                 <p id="personality-text"></p>
                 <p id="catchphrase-text" class="catchphrase"></p>
             </div>
-
             <div class="face-info">
                 <div><strong>Eyes:</strong> <span id="eyes-info"></span></div>
                 <div><strong>Mouth:</strong> <span id="mouth-info"></span></div>
             </div>
+        </div>
 
-            <!-- Generated Images -->
-            <div id="images-grid" class="images-grid hidden"></div>
-
-            <!-- Prompts -->
-            <div id="prompts-section">
-                <h3>Prompts</h3>
-                <div id="prompts-list"></div>
-            </div>
-
-            <!-- Animation -->
-            <div id="animation-section" class="hidden">
-                <h3>Animation Prompt</h3>
-                <div class="prompt-card">
-                    <pre id="animation-prompt"></pre>
-                    <button class="btn-copy" onclick="copyText('animation-prompt')">Copy</button>
+        <!-- GALLERY (accumulates all generated images) -->
+        <div id="gallery-section" class="hidden">
+            <div class="gallery-header">
+                <h3>Generated Images</h3>
+                <div>
+                    <button id="download-all-btn" class="btn-small-secondary">Download All (ZIP)</button>
+                    <button id="clear-gallery-btn" class="btn-small-secondary">Clear Gallery</button>
                 </div>
             </div>
+            <div id="gallery-grid" class="images-grid"></div>
+        </div>
 
-            <div class="result-actions">
-                <button id="download-all-btn" class="btn-secondary hidden">Download All (ZIP)</button>
-                <button id="try-again-btn" class="btn-primary">Try Another</button>
+        <!-- PROMPTS (collapsible) -->
+        <div id="prompts-section" class="hidden">
+            <h3 class="section-toggle" onclick="toggleSection('prompts-list')">Text Prompts ▾</h3>
+            <div id="prompts-list" class="collapsed"></div>
+        </div>
+
+        <!-- REGENERATE PANEL -->
+        <div id="regen-section" class="hidden">
+            <h3>Regenerate with different settings</h3>
+            <div class="options">
+                <div class="option-group">
+                    <label>Style</label>
+                    <select id="regen-style">
+                        <option value="pixar" selected>Pixar 3D</option>
+                        <option value="cartoon">Cartoon</option>
+                        <option value="realistic">Realistic</option>
+                        <option value="all">All three</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Expression</label>
+                    <select id="regen-expression">
+                        <option value="happy">Happy</option>
+                        <option value="neutral">Neutral</option>
+                        <option value="serious" selected>Serious</option>
+                        <option value="surprised">Surprised</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Body</label>
+                    <select id="regen-body">
+                        <option value="face_only" selected>Face only</option>
+                        <option value="face_arms">Face + Arms</option>
+                        <option value="face_arms_legs">Face + Arms & Legs</option>
+                        <option value="face_wheels">Face + Wheels</option>
+                    </select>
+                </div>
             </div>
+            <button id="regen-btn" class="btn-primary">Regenerate</button>
+            <button id="new-photo-btn" class="btn-secondary">Try another photo</button>
         </div>
 
         <!-- ERROR -->
@@ -110,8 +151,13 @@
             <div class="error-card">
                 <h3>Error</h3>
                 <p id="error-text"></p>
-                <button onclick="resetUI()" class="btn-primary">Try Again</button>
+                <button onclick="resetAll()" class="btn-primary">Try Again</button>
             </div>
+        </div>
+
+        <!-- FULLSCREEN IMAGE VIEWER -->
+        <div id="lightbox" class="lightbox hidden" onclick="closeLightbox()">
+            <img id="lightbox-img" alt="Full size">
         </div>
 
         <footer>Made with care by Toolgini — woodmachine.gr</footer>
