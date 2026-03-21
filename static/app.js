@@ -222,18 +222,20 @@ if ($('new-photo-btn')) $('new-photo-btn').addEventListener('click', resetAll);
 // ── Loading ────────────────────────────────────
 function showLoading() {
     hideAll();
-    loadingSection.classList.remove('hidden');
-    uploadSection.classList.remove('hidden');
-    settingsPanel.classList.add('hidden');
+    if (loadingSection) loadingSection.classList.remove('hidden');
+    if (uploadSection) uploadSection.classList.remove('hidden');
+    if (settingsPanel) settingsPanel.classList.add('hidden');
     // Pick right messages for mode
     if (currentMode === 'text') loadingMessages = loadingMessagesText;
     else if (currentMode === 'group') loadingMessages = loadingMessagesGroup;
     else loadingMessages = loadingMessagesPhoto;
     loadingMsgIndex = 0;
-    $('loading-text').textContent = loadingMessages[0];
+    const lt = $('loading-text');
+    if (lt) lt.textContent = loadingMessages[0];
     loadingInterval = setInterval(() => {
         loadingMsgIndex = (loadingMsgIndex + 1) % loadingMessages.length;
-        $('loading-text').textContent = loadingMessages[loadingMsgIndex];
+        const lt2 = $('loading-text');
+        if (lt2) lt2.textContent = loadingMessages[loadingMsgIndex];
     }, 4000);
 }
 
@@ -329,31 +331,33 @@ function escapeHtml(t) { const d = document.createElement('div'); d.textContent 
 
 // ── UI State ───────────────────────────────────
 function hideAll() {
-    [loadingSection, errorSection].forEach(s => s?.classList.add('hidden'));
+    [loadingSection, errorSection].forEach(s => { if (s) s.classList.add('hidden'); });
 }
 
 function showResults() {
-    loadingSection.classList.add('hidden');
-    settingsPanel.classList.add('hidden');
-    regenSection.classList.remove('hidden');
-    uploadSection.classList.remove('hidden');
+    if (loadingSection) loadingSection.classList.add('hidden');
+    if (settingsPanel) settingsPanel.classList.add('hidden');
+    if (regenSection) regenSection.classList.remove('hidden');
+    if (uploadSection) uploadSection.classList.remove('hidden');
+    if (gallerySection) gallerySection.classList.remove('hidden');
 }
 
 function showError(msg) {
-    loadingSection.classList.add('hidden');
-    $('error-text').textContent = msg;
-    errorSection.classList.remove('hidden');
+    if (loadingSection) loadingSection.classList.add('hidden');
+    const et = $('error-text');
+    if (et) et.textContent = msg;
+    if (errorSection) errorSection.classList.remove('hidden');
 }
 
 function resetAll() {
     selectedFile = null; galleryImages = [];
-    galleryGrid.innerHTML = '';
-    previewContainer?.classList.add('hidden');
-    dropZone?.classList.remove('hidden');
+    if (galleryGrid) galleryGrid.innerHTML = '';
+    if (previewContainer) previewContainer.classList.add('hidden');
+    if (dropZone) dropZone.classList.remove('hidden');
     if (generateBtn) generateBtn.disabled = true;
     if (fileInput) fileInput.value = '';
     [settingsPanel, infoSection, gallerySection, promptsSection,
-     regenSection, errorSection, loadingSection].forEach(s => s?.classList.add('hidden'));
+     regenSection, errorSection, loadingSection].forEach(s => { if (s) s.classList.add('hidden'); });
 }
 
 // ── Custom BG toggle ───────────────────────────
