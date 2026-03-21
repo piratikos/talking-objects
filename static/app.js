@@ -150,6 +150,7 @@ if (generateBtn) {
             const desc = $('machine-description')?.value?.trim();
             if (!desc) { alert('Please describe your object'); return; }
 
+            console.log('[TEXT MODE] Submitting to /generate-text');
             const fd = new FormData();
             fd.append('description', desc);
             fd.append('machine_type', $('machine-type-select')?.value || 'woodworking machine');
@@ -164,14 +165,24 @@ if (generateBtn) {
 
             showLoading();
             try {
-                const res = await fetch('/generate-text', { method: 'POST', body: fd });
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 120000);
+                console.log('[TEXT MODE] Fetching...');
+                const res = await fetch('/generate-text', { method: 'POST', body: fd, signal: controller.signal });
+                clearTimeout(timeout);
+                console.log('[TEXT MODE] Response received:', res.status);
                 const data = await res.json();
                 stopLoading();
                 if (data.error) { showError(data.error); return; }
-                if (data.machine_type) $('machine-type') && ($('machine-type').textContent = data.machine_type);
+                console.log('[TEXT MODE] Images:', Object.keys(data.generated_images || {}));
                 addToGallery(data.generated_images || {});
                 showResults();
-            } catch (err) { stopLoading(); showError('Network error: ' + err.message); }
+            } catch (err) {
+                stopLoading();
+                const msg = err.name === 'AbortError' ? 'Timeout — generation took too long (>2 min)' : 'Network error: ' + err.message;
+                showError(msg);
+                console.error('[TEXT MODE] Error:', err);
+            }
 
         } else if (currentMode === 'group') {
             // GROUP SHOT MODE
@@ -357,11 +368,13 @@ function resetAll() {
 // ── Tabs ───────────────────────────────────────
 let currentMode = 'photo';
 
-function switchTab(mode) {
+function switchTab(mode, evt) {
     currentMode = mode;
+    console.log('[TAB] Switched to:', mode);
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-    event.target.classList.add('active');
+    if (evt && evt.target) evt.target.classList.add('active');
+    else document.querySelector(`.mode-tab[onclick*="${mode}"]`)?.classList.add('active');
     const tab = $('tab-' + mode);
     if (tab) tab.classList.remove('hidden');
 
