@@ -589,7 +589,9 @@ def generate_text():
     if not description:
         return jsonify({"error": "Please describe your object"}), 400
 
-    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / {body_style} / cat={category}")
+    print(f"[DEBUG] /generate-text called")
+    print(f"[DEBUG] Form: {dict(request.form)}")
+    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / body={body_style} / bg={background} / cloth={clothing}")
 
     try:
         client = get_client()
@@ -613,7 +615,9 @@ def generate_text():
 @rate_limited
 def generate_group():
     """Generate group shot of multiple machines."""
+    print(f"[DEBUG] /generate-group called")
     data = request.get_json() or {}
+    print(f"[DEBUG] Group data: {len(data.get('machines',[]))} machines")
     machines = data.get('machines', [])
     use_preset = data.get('use_preset', False)
     background = data.get('background', 'toolgini_workshop')

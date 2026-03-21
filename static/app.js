@@ -91,44 +91,77 @@ if ($('clear-btn')) {
     });
 }
 
-// ── Generate ───────────────────────────────────
+// ── Generate (unified handler for all modes) ───
 if (generateBtn) {
     generateBtn.addEventListener('click', async () => {
-        if (!selectedFile) return;
+        // Common settings
         const style = $('style-select')?.value || 'pixar';
         const expr = $('expression-select')?.value || 'happy';
         const body = $('body-select')?.value || 'face_only';
         const bg = $('bg-select')?.value || 'original';
         const angle = $('angle-select')?.value || 'original';
-        const gen = $('gen-select')?.value || 'true';
-        const personality = $('personality-input')?.value?.trim() || '';
         const customBg = $('custom-bg-input')?.value?.trim() || '';
+        const clothing = $('clothing-select')?.value || 'none';
+        const personality = $('personality-input')?.value?.trim() || '';
 
-        const fd2 = new FormData();
-        fd2.append('image', selectedFile);
-        fd2.append('style', style);
-        fd2.append('expression', expr);
-        fd2.append('body_style', body);
-        fd2.append('background', bg);
-        fd2.append('camera_angle', angle);
-        fd2.append('custom_bg', customBg);
-        fd2.append('clothing', $('clothing-select')?.value || 'none');
-        fd2.append('generate_images', gen);
-        if (personality) fd2.append('personality', personality);
+        if (currentMode === 'photo') {
+            // PHOTO MODE
+            if (!selectedFile) { alert('Please upload a photo first'); return; }
+            const fd = new FormData();
+            fd.append('image', selectedFile);
+            fd.append('style', style);
+            fd.append('expression', expr);
+            fd.append('body_style', body);
+            fd.append('background', bg);
+            fd.append('camera_angle', angle);
+            fd.append('custom_bg', customBg);
+            fd.append('clothing', clothing);
+            fd.append('generate_images', $('gen-select')?.value || 'true');
+            if (personality) fd.append('personality', personality);
 
-        showLoading();
-        try {
-            const res = await fetch('/upload', { method: 'POST', body: fd2 });
-            const data = await res.json();
-            stopLoading();
-            if (data.error) { showError(data.error); return; }
-            showMachineInfo(data);
-            addToGallery(data.generated_images || {});
-            showPrompts(data.prompts || {});
-            showResults();
-        } catch (err) {
-            stopLoading();
-            showError('Network error: ' + err.message);
+            showLoading();
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                stopLoading();
+                if (data.error) { showError(data.error); return; }
+                showMachineInfo(data);
+                addToGallery(data.generated_images || {});
+                showPrompts(data.prompts || {});
+                showResults();
+            } catch (err) { stopLoading(); showError('Network error: ' + err.message); }
+
+        } else if (currentMode === 'text') {
+            // TEXT DESCRIPTION MODE
+            const desc = $('machine-description')?.value?.trim();
+            if (!desc) { alert('Please describe your object'); return; }
+
+            const fd = new FormData();
+            fd.append('description', desc);
+            fd.append('machine_type', $('machine-type-select')?.value || 'woodworking machine');
+            fd.append('style', style);
+            fd.append('expression', expr);
+            fd.append('body_style', body);
+            fd.append('background', bg);
+            fd.append('camera_angle', angle);
+            fd.append('custom_bg', customBg);
+            fd.append('clothing', clothing);
+            if (personality) fd.append('personality', personality);
+
+            showLoading();
+            try {
+                const res = await fetch('/generate-text', { method: 'POST', body: fd });
+                const data = await res.json();
+                stopLoading();
+                if (data.error) { showError(data.error); return; }
+                if (data.machine_type) $('machine-type') && ($('machine-type').textContent = data.machine_type);
+                addToGallery(data.generated_images || {});
+                showResults();
+            } catch (err) { stopLoading(); showError('Network error: ' + err.message); }
+
+        } else if (currentMode === 'group') {
+            // GROUP SHOT MODE
+            await generateGroup();
         }
     });
 }
@@ -314,57 +347,30 @@ function switchTab(mode) {
     const tab = $('tab-' + mode);
     if (tab) tab.classList.remove('hidden');
 
-    // Show settings for all modes
     if (settingsPanel) {
         if (mode === 'group') {
+            // Group has its own generate button inside the tab
             settingsPanel.classList.add('hidden');
-        } else if (mode === 'text') {
+        } else {
+            // Photo and text both use the settings panel + main generate button
             settingsPanel.classList.remove('hidden');
-            if (generateBtn) generateBtn.disabled = false;
         }
     }
 
-    // Update generate button text
     if (generateBtn) {
-        if (mode === 'text') generateBtn.textContent = 'Generate from Description';
-        else if (mode === 'photo') generateBtn.textContent = 'Generate!';
+        if (mode === 'text') {
+            generateBtn.textContent = 'Generate from Description';
+            generateBtn.disabled = false;
+        } else if (mode === 'group') {
+            // Group uses its own button
+        } else {
+            generateBtn.textContent = 'Generate!';
+            generateBtn.disabled = !selectedFile;
+        }
     }
 }
 
-// Override generate for text mode
-if (generateBtn) {
-    const originalClick = generateBtn.onclick;
-    generateBtn.addEventListener('click', async (e) => {
-        if (currentMode === 'text') {
-            e.stopImmediatePropagation();
-            const desc = $('machine-description')?.value?.trim();
-            if (!desc) { alert('Please describe your machine'); return; }
-
-            const fd = new FormData();
-            fd.append('description', desc);
-            fd.append('machine_type', $('machine-type-select')?.value || 'woodworking machine');
-            fd.append('style', $('style-select')?.value || 'pixar');
-            fd.append('expression', $('expression-select')?.value || 'happy');
-            fd.append('body_style', $('body-select')?.value || 'face_only');
-            fd.append('background', $('bg-select')?.value || 'original');
-            fd.append('camera_angle', $('angle-select')?.value || 'original');
-            fd.append('clothing', $('clothing-select')?.value || 'none');
-
-            showLoading();
-            try {
-                const res = await fetch('/generate-text', { method: 'POST', body: fd });
-                const data = await res.json();
-                stopLoading();
-                if (data.error) { showError(data.error); return; }
-                addToGallery(data.generated_images || {});
-                showResults();
-            } catch (err) {
-                stopLoading();
-                showError(err.message);
-            }
-        }
-    }, true);
-}
+// Text/group mode handled in unified generate handler above
 
 // Group shot
 function addGroupMachine() {
