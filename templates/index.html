@@ -55,63 +55,27 @@
         <!-- TAB 2: TEXT DESCRIPTION -->
         <div id="tab-text" class="tab-content hidden">
             <div class="text-input-section">
-                <div class="option-group">
-                    <label>Machine Type</label>
-                    <select id="machine-type-select">
-                        <optgroup label="Machines & Tools">
-                            <option value="edgebander">Edgebander</option>
-                            <option value="planer">Planer / Thicknesser</option>
-                            <option value="format saw">Format Saw</option>
-                            <option value="CNC router">CNC Router</option>
-                            <option value="drill press">Drill Press</option>
-                            <option value="sander">Sander</option>
-                            <option value="bandsaw">Bandsaw</option>
-                        </optgroup>
-                        <optgroup label="Appliances">
-                            <option value="refrigerator">Refrigerator</option>
-                            <option value="washing machine">Washing Machine</option>
-                            <option value="toaster">Toaster</option>
-                            <option value="coffee machine">Coffee Machine</option>
-                            <option value="microwave">Microwave</option>
-                        </optgroup>
-                        <optgroup label="Food & Fruit">
-                            <option value="apple">Apple</option>
-                            <option value="banana">Banana</option>
-                            <option value="pizza slice">Pizza Slice</option>
-                            <option value="burger">Burger</option>
-                            <option value="donut">Donut</option>
-                            <option value="avocado">Avocado</option>
-                        </optgroup>
-                        <optgroup label="Body Parts">
-                            <option value="heart">Heart</option>
-                            <option value="brain">Brain</option>
-                            <option value="tooth">Tooth</option>
-                        </optgroup>
-                        <optgroup label="Electronics">
-                            <option value="smartphone">Smartphone</option>
-                            <option value="laptop">Laptop</option>
-                            <option value="camera">Camera</option>
-                            <option value="game controller">Game Controller</option>
-                        </optgroup>
-                        <optgroup label="Vehicles">
-                            <option value="car">Car</option>
-                            <option value="motorcycle">Motorcycle</option>
-                            <option value="bicycle">Bicycle</option>
-                        </optgroup>
-                        <optgroup label="Furniture">
-                            <option value="chair">Chair</option>
-                            <option value="lamp">Lamp</option>
-                            <option value="bookshelf">Bookshelf</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                            <option value="custom object">Custom...</option>
-                        </optgroup>
-                    </select>
-                </div>
                 <div class="option-group full-width">
-                    <label>Describe Your Machine</label>
-                    <textarea id="machine-description" rows="3" placeholder="e.g. a small white edgebanding machine with orange rollers and a digital display panel"></textarea>
+                    <label>What do you want to bring to life?</label>
+                    <textarea id="machine-description" rows="4" placeholder="e.g., a lung organ, a pair of jeans, a banana, a coffee machine, a heart, a small orange edgebander..."></textarea>
                 </div>
+                <div class="quick-picks">
+                    <button type="button" class="chip" onclick="fillDesc('a compact white and orange automatic edge banding machine with digital displays and rollers')">🔧 Edgebander</button>
+                    <button type="button" class="chip" onclick="fillDesc('a large industrial table saw with silver blade guard and green metal body')">🪚 Table Saw</button>
+                    <button type="button" class="chip" onclick="fillDesc('a pair of human lungs, pink and spongy with branching airways visible')">🫁 Lungs</button>
+                    <button type="button" class="chip" onclick="fillDesc('a human heart, red and muscular with arteries and veins')">❤️ Heart</button>
+                    <button type="button" class="chip" onclick="fillDesc('a human brain, pink-grey with wrinkled surface and two hemispheres')">🧠 Brain</button>
+                    <button type="button" class="chip" onclick="fillDesc('a ripe yellow banana with slight brown spots')">🍌 Banana</button>
+                    <button type="button" class="chip" onclick="fillDesc('a slice of pepperoni pizza with melted cheese dripping')">🍕 Pizza</button>
+                    <button type="button" class="chip" onclick="fillDesc('a pair of blue denim jeans, classic straight fit')">👖 Jeans</button>
+                    <button type="button" class="chip" onclick="fillDesc('a modern smartphone with large touchscreen and slim metal frame')">📱 Phone</button>
+                    <button type="button" class="chip" onclick="fillDesc('a large white refrigerator with double doors and ice dispenser')">🧊 Fridge</button>
+                    <button type="button" class="chip" onclick="fillDesc('an espresso coffee machine, silver and black with steam wand')">☕ Coffee</button>
+                    <button type="button" class="chip" onclick="fillDesc('a wooden dining chair with curved backrest and four legs')">🪑 Chair</button>
+                    <button type="button" class="chip" onclick="fillDesc('a red sports car, low and aerodynamic with large wheels')">🚗 Car</button>
+                    <button type="button" class="chip" onclick="fillDesc('an acoustic guitar with wooden body and steel strings')">🎸 Guitar</button>
+                </div>
+                <input type="hidden" id="machine-type-select" value="custom object">
             </div>
         </div>
 

@@ -514,3 +514,19 @@ textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 16p
     background: var(--bg-primary); color: #fff; font-size: 12px;
 }
 .group-machine-card input:focus { border-color: var(--accent); outline: none; }
+
+/* Quick pick chips */
+.quick-picks {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0;
+}
+.chip {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+    backdrop-filter: blur(4px); white-space: nowrap;
+}
+.chip:hover {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(255,107,0,0.1); transform: scale(1.05);
+}
+.chip:active { transform: scale(0.95); }

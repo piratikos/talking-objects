@@ -153,7 +153,10 @@ if (generateBtn) {
             console.log('[TEXT MODE] Submitting to /generate-text');
             const fd = new FormData();
             fd.append('description', desc);
-            fd.append('machine_type', $('machine-type-select')?.value || 'woodworking machine');
+            // Extract object type: first few words or the hidden input value
+            const mtEl = $('machine-type-select');
+            const machineType = (mtEl && mtEl.value !== 'custom object') ? mtEl.value : desc.split(/[,.]/).shift().trim();
+            fd.append('machine_type', machineType);
             fd.append('style', style);
             fd.append('expression', expr);
             fd.append('body_style', body);
@@ -405,7 +408,13 @@ function switchTab(mode, evt) {
     }
 }
 
-// Text/group mode handled in unified generate handler above
+// Fill description from quick pick chip
+function fillDesc(text) {
+    const ta = $('machine-description');
+    if (ta) { ta.value = text; ta.focus(); }
+    // Enable generate button
+    if (generateBtn) generateBtn.disabled = false;
+}
 
 // Group shot
 function addGroupMachine() {
