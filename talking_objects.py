@@ -534,16 +534,38 @@ def generate_text_only(client, description, machine_type, style, expression,
     }.get(style, "3D rendered")
 
     prompt = (
-        f"{style_desc} 3D render of a {machine_type} character. "
-        f"The object is: {description}. "
-        f"Anthropomorphic face: expressive eyes with eyebrows, a mouth with {expr_desc}. "
-        f"{body_desc}"
-        f"Anthropomorphic face: expressive eyes with eyebrows, mouth with {expr_desc}. "
-        f"Ultra-detailed, professional render."
+        f"{style_desc} of a cute anthropomorphic {machine_type} character. "
+        f"The object looks like: {description}. "
+        f"Big expressive cartoon eyes with eyebrows, clearly defined mouth with lips. {expr_desc}. "
+        f"Ultra-detailed, professional quality, 4K."
     )
 
     prompt = optimize_prompt_for_category(prompt, category, body_style, clothing)
-    print(f"[DEBUG] Text-only prompt ({len(prompt)} chars): {prompt[:300]}...")
+
+    # Add background
+    if background and background != "original":
+        bg_texts = {
+            "toolgini_workshop": "In a warm professional workshop with tools on wall, TOOLGINI sign, sawdust, warm cinematic lighting.",
+            "modern_showroom": "In a clean modern showroom with spotlights and reflections.",
+            "trade_show": "At a trade show booth with banners and bright exhibition lighting.",
+            "carpenters_dream": "In a beautiful old carpenter workshop with golden light through dusty windows.",
+            "outdoor": "Outdoors with green landscape, golden hour sunlight.",
+            "studio": "On solid dark background with dramatic rim lighting.",
+        }
+        prompt += f" {bg_texts.get(background, '')}"
+
+    # Add camera angle
+    if camera_angle and camera_angle != "original":
+        angle_texts = {
+            "front_facing": "Front-facing view, looking directly at camera.",
+            "three_quarter": "3/4 angle view, slightly turned.",
+            "low_angle": "Low angle shot looking up, heroic pose.",
+            "eye_level": "Eye-level straight-on view.",
+            "isometric": "Isometric 3/4 top-down angle.",
+        }
+        prompt += f" {angle_texts.get(camera_angle, '')}"
+
+    print(f"[DEBUG] Text-only prompt ({len(prompt)} chars): {prompt[:500]}...")
 
     for attempt in range(3):
         try:

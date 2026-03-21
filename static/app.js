@@ -40,14 +40,28 @@ const galleryGrid = $('gallery-grid');
 
 let selectedFile = null;
 let galleryImages = [];
-const loadingMessages = [
-    'Analyzing machine anatomy...',
+const loadingMessagesPhoto = [
+    'Analyzing object...',
     'Identifying face placement...',
-    'Designing character personality...',
-    'Generating images...',
+    'Designing character...',
+    'Generating image...',
     'Adding final touches...',
     'Almost there...'
 ];
+const loadingMessagesText = [
+    'Building character prompt...',
+    'Generating image from description...',
+    'Rendering character...',
+    'Adding details...',
+    'Almost there...'
+];
+const loadingMessagesGroup = [
+    'Building group scene...',
+    'Generating team photo...',
+    'Arranging characters...',
+    'Almost there...'
+];
+let loadingMessages = loadingMessagesPhoto;
 let loadingMsgIndex = 0;
 let loadingInterval = null;
 
@@ -200,6 +214,10 @@ function showLoading() {
     loadingSection.classList.remove('hidden');
     uploadSection.classList.remove('hidden');
     settingsPanel.classList.add('hidden');
+    // Pick right messages for mode
+    if (currentMode === 'text') loadingMessages = loadingMessagesText;
+    else if (currentMode === 'group') loadingMessages = loadingMessagesGroup;
+    else loadingMessages = loadingMessagesPhoto;
     loadingMsgIndex = 0;
     $('loading-text').textContent = loadingMessages[0];
     loadingInterval = setInterval(() => {
