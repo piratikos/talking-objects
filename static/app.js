@@ -206,6 +206,7 @@ if ($('regen-btn')) {
         fd.append('camera_angle', $('regen-angle')?.value || 'original');
         fd.append('custom_bg', $('regen-custom-bg')?.value || '');
         fd.append('clothing', $('clothing-select')?.value || 'none');
+        fd.append('mode', currentMode);
 
         btn.textContent = 'Generating...';
         btn.classList.add('loading');
@@ -248,24 +249,36 @@ function stopLoading() {
 
 // ── Gallery ────────────────────────────────────
 function addToGallery(images) {
+    const modeIcon = currentMode === 'text' ? '✏️' : currentMode === 'group' ? '👥' : '📷';
     let delay = 0;
     for (const [key, img] of Object.entries(images)) {
         const dataUrl = `data:${img.mime};base64,${img.data}`;
-        galleryImages.push({ label: key, dataUrl });
+        const imgIdx = galleryImages.length;
+        galleryImages.push({ label: key, dataUrl, b64: img.data });
         const card = document.createElement('div');
         card.className = 'image-card';
         card.style.animationDelay = `${delay}ms`;
         card.innerHTML = `
             <img src="${dataUrl}" alt="${key}" onclick="openLightbox('${dataUrl}')">
             <div class="card-footer">
-                <span class="label">${key.replace(/_/g, ' ')}</span>
-                <a href="${dataUrl}" download="${key}.png" class="btn-copy">Download</a>
+                <span class="label">${modeIcon} ${key.replace(/_/g, ' ')}</span>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn-copy" onclick="startEdit(${imgIdx})">✏️</button>
+                    <a href="${dataUrl}" download="${key}.png" class="btn-copy">DL</a>
+                </div>
+            </div>
+            <div class="edit-panel hidden" id="edit-panel-${imgIdx}">
+                <input type="text" placeholder="e.g. add sunglasses, change bg to beach..." id="edit-input-${imgIdx}" class="edit-input">
+                <button class="btn-copy" onclick="applyEdit(${imgIdx})">Apply</button>
             </div>
         `;
-        galleryGrid.prepend(card);
+        if (galleryGrid) galleryGrid.prepend(card);
         delay += 150;
     }
-    if (galleryImages.length) gallerySection.classList.remove('hidden');
+    if (galleryImages.length && gallerySection) gallerySection.classList.remove('hidden');
+    // Update counter
+    const header = document.querySelector('.gallery-header h3');
+    if (header) header.textContent = `Generated Images (${galleryImages.length})`;
 }
 
 if ($('clear-gallery-btn')) {
@@ -406,6 +419,45 @@ function switchTab(mode, evt) {
             generateBtn.disabled = !selectedFile;
         }
     }
+}
+
+// ── Image Editing ──────────────────────────────
+function startEdit(idx) {
+    const panel = $(`edit-panel-${idx}`);
+    if (panel) panel.classList.toggle('hidden');
+}
+
+async function applyEdit(idx) {
+    const input = $(`edit-input-${idx}`);
+    if (!input || !input.value.trim()) { alert('Describe what to change'); return; }
+
+    const img = galleryImages[idx];
+    if (!img || !img.b64) { alert('Image not found'); return; }
+
+    const editBtn = input.nextElementSibling;
+    if (editBtn) { editBtn.textContent = 'Editing...'; editBtn.disabled = true; }
+
+    try {
+        const fd = new FormData();
+        fd.append('image_data', img.b64);
+        fd.append('edit_instruction', input.value.trim());
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000);
+        const res = await fetch('/edit-image', { method: 'POST', body: fd, signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await res.json();
+
+        if (data.error) { alert('Edit failed: ' + data.error); }
+        else { addToGallery(data.generated_images || {}); }
+    } catch (err) {
+        alert(err.name === 'AbortError' ? 'Edit timed out' : 'Error: ' + err.message);
+    }
+
+    if (editBtn) { editBtn.textContent = 'Apply'; editBtn.disabled = false; }
+    const panel = $(`edit-panel-${idx}`);
+    if (panel) panel.classList.add('hidden');
+    if (input) input.value = '';
 }
 
 // Fill description from quick pick chip

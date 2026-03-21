@@ -530,3 +530,14 @@ textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 16p
     background: rgba(255,107,0,0.1); transform: scale(1.05);
 }
 .chip:active { transform: scale(0.95); }
+
+/* Edit panel */
+.edit-panel {
+    padding: 8px; display: flex; gap: 6px; align-items: center;
+    border-top: 1px solid var(--glass-border);
+}
+.edit-input {
+    flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg-primary); color: #fff; font-size: 11px;
+}
+.edit-input:focus { border-color: var(--accent); outline: none; }

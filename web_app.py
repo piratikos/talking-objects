@@ -487,11 +487,7 @@ def upload():
 @app.route('/regenerate', methods=['POST'])
 @rate_limited
 def regenerate():
-    upload_path = session.get('upload_path')
-    analysis = session.get('analysis')
-    if not upload_path or not Path(upload_path).exists():
-        return jsonify({"error": "No photo in session. Upload first."}), 400
-
+    mode = request.form.get('mode', 'photo')
     style = request.form.get('style', 'pixar')
     expression = request.form.get('expression', 'happy')
     body_style = request.form.get('body_style', 'face_only')
@@ -500,13 +496,42 @@ def regenerate():
     custom_bg = request.form.get('custom_bg', '')
     clothing = request.form.get('clothing', 'none')
 
-    try:
-        image = prepare_image(upload_path)
-        face = (analysis or {}).get("face_placement", {})
-        detected_cat = (analysis or {}).get("category", "MACHINE/TOOL")
+    print(f"[DEBUG] /regenerate mode={mode}")
 
-        gen_results = do_generate(image, style, expression, body_style, face,
-                                  background, camera_angle, custom_bg, detected_cat, clothing)
+    try:
+        if mode == 'text':
+            # Text-only regeneration — no photo
+            description = session.get('last_description', '')
+            machine_type = session.get('last_machine_type', 'object')
+            if not description:
+                return jsonify({"error": "No description in session. Use 'From Description' tab first."}), 400
+
+            client = get_client()
+            category = session.get('last_category', 'MACHINE/TOOL')
+            img_data, mime = generate_text_only(
+                client, description, machine_type, style, expression,
+                body_style, background, camera_angle, category, clothing
+            )
+            gen_results = {}
+            if img_data:
+                b64 = base64.b64encode(img_data).decode("utf-8")
+                gen_results[f"{style}_{expression}"] = {
+                    "data": b64, "mime": mime or "image/png", "mode": "text"
+                }
+
+        else:
+            # Photo-based regeneration
+            upload_path = session.get('upload_path')
+            analysis = session.get('analysis')
+            if not upload_path or not Path(upload_path).exists():
+                return jsonify({"error": "No photo in session. Upload first."}), 400
+
+            image = prepare_image(upload_path)
+            face = (analysis or {}).get("face_placement", {})
+            detected_cat = (analysis or {}).get("category", "MACHINE/TOOL")
+
+            gen_results = do_generate(image, style, expression, body_style, face,
+                                      background, camera_angle, custom_bg, detected_cat, clothing)
 
         user_dir = get_user_dir()
         project_id = session.get('project_id')
@@ -589,9 +614,12 @@ def generate_text():
     if not description:
         return jsonify({"error": "Please describe your object"}), 400
 
-    print(f"[DEBUG] /generate-text called")
-    print(f"[DEBUG] Form: {dict(request.form)}")
-    print(f"[DEBUG] Text-only: {machine_type} / {style} / {expression} / body={body_style} / bg={background} / cloth={clothing}")
+    # Save for regeneration
+    session['last_description'] = description
+    session['last_machine_type'] = machine_type
+    session['last_category'] = category
+
+    print(f"[DEBUG] /generate-text: {machine_type} / {style} / {expression} / body={body_style}")
 
     try:
         client = get_client()
@@ -642,6 +670,51 @@ def generate_group():
                 "data": b64, "mime": mime or "image/png"
             }
         return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/edit-image', methods=['POST'])
+@rate_limited
+def edit_image():
+    """Edit a generated image with text instruction."""
+    image_data = request.form.get('image_data', '')
+    edit_instruction = request.form.get('edit_instruction', '')
+
+    if not image_data or not edit_instruction:
+        return jsonify({"error": "Image data and edit instruction required"}), 400
+
+    print(f"[DEBUG] /edit-image: {edit_instruction[:100]}")
+
+    try:
+        from google.genai import types
+        img_bytes = base64.b64decode(image_data)
+        img = PIL.Image.open(io.BytesIO(img_bytes))
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+
+        client = get_client()
+        prompt = f"Edit this image: {edit_instruction}. Keep everything else exactly the same."
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=[prompt, img],
+            config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"])
+        )
+
+        if (response.candidates and response.candidates[0].content
+                and response.candidates[0].content.parts):
+            for part in response.candidates[0].content.parts:
+                if part.inline_data is not None:
+                    b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+                    return jsonify({
+                        "status": "complete",
+                        "generated_images": {
+                            "edited": {"data": b64, "mime": part.inline_data.mime_type or "image/png"}
+                        }
+                    })
+
+        return jsonify({"error": "No image returned from edit"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
