@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: talking-objects
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+    disk:
+      name: talking-objects-data
+      mountPath: /app/db
+      sizeGB: 1
